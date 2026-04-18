@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>관리자 · CareSafe</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="admin">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-logo">CS</span> CareSafe <span style="font-size:12px;opacity:0.6;margin-left:auto">v0.1</span></div>
+    <nav>
+      <a class="active">📊 대시보드</a>
+      <a onclick="alert('데모: 사용자 상세 관리')">👵 돌봄 대상자</a>
+      <a onclick="alert('데모: 보호자 계정 관리')">👪 보호자 관리</a>
+      <a onclick="alert('데모: 알림 이력 필터/검색')">🔔 알림 이력</a>
+      <a onclick="alert('데모: 병원 퇴원지원팀 연동')">🏥 연동 병원</a>
+      <a onclick="alert('데모: 통계 리포트 (프리미엄)')">📈 통계 리포트</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <header>
+      <div>
+        <div class="crumbs">CareSafe 운영 · 실시간 모니터링</div>
+        <h1>퇴원 안심 패키지 대시보드</h1>
+      </div>
+      <div class="hstack">
+        <span class="pill primary"><span class="dot pulse-dot"></span> 실시간</span>
+        <a href="index.html" class="btn ghost small">🏠 홈</a>
+        <a href="simulator.html" class="btn small">📟 시뮬레이터</a>
+      </div>
+    </header>
+
+    <div class="kpis">
+      <div class="kpi"><div class="l">활성 돌봄 대상자</div><div class="n" id="kActive">—</div><div class="d">+1 이번 주</div></div>
+      <div class="kpi"><div class="l">오늘 알림 발생</div><div class="n" id="kToday">—</div><div class="d">평상 범위</div></div>
+      <div class="kpi"><div class="l">위급 대응 대기</div><div class="n" id="kDanger">—</div><div class="d" id="kDangerD">없음</div></div>
+      <div class="kpi"><div class="l">연동 병원</div><div class="n">3</div><div class="d">분당·강남권</div></div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;" id="grid">
+      <div class="panel">
+        <h2>돌봄 대상자 현황 <span class="muted" style="font-weight:400">· 실시간 동기화</span></h2>
+        <table>
+          <thead><tr><th>이름</th><th>지역</th><th>보호자</th><th>상태</th><th>배터리</th><th>마지막 신호</th><th>비고</th></tr></thead>
+          <tbody id="seniorRows"></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>알림 피드 <span class="muted" style="font-weight:400">· 최근 15건</span></h2>
+        <div class="feed">
+          <ul class="list" id="feedList"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:20px">
+      <h2>거점 병원 파이프라인 · 퇴원 안심 패키지</h2>
+      <table>
+        <thead><tr><th>병원</th><th>담당</th><th>진행 단계</th><th>예상 시범 가구</th><th>메모</th></tr></thead>
+        <tbody>
+          <tr><td>분당서울대병원 재활의학과</td><td>퇴원지원팀 정소영</td><td><span class="pill ok">협약 체결</span></td><td>20가구</td><td>4월 시범 시작</td></tr>
+          <tr><td>강남세브란스 정형외과</td><td>간호부 이하림</td><td><span class="pill warn">MOU 협의 중</span></td><td>15가구</td><td>퇴원교육 리플렛 검토</td></tr>
+          <tr><td>차의과학대학교 분당차병원</td><td>사회사업팀 박지안</td><td><span class="pill primary">첫 미팅</span></td><td>15가구</td><td>4/17 15시 미팅 (오늘)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+const ICONS = { sos: '🆘', fall: '⚠️', battery: '🔋', medication: '💊', activity: '🟢', inactivity: '⏸️' };
+const LEVEL_TEXT = { ok: '정상', warn: '주의', danger: '위급' };
+
+function render() {
+  const state = CareSafe.load();
+
+  document.getElementById('kActive').textContent = state.seniors.length + '명';
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayCount = state.alerts.filter(a => a.time >= today.getTime()).length;
+  document.getElementById('kToday').textContent = todayCount + '건';
+
+  const dangerCount = state.seniors.filter(s => s.status === 'danger').length;
+  document.getElementById('kDanger').textContent = dangerCount + '명';
+  const kd = document.getElementById('kDangerD');
+  kd.textContent = dangerCount > 0 ? '즉시 대응 필요' : '없음';
+  kd.className = 'd ' + (dangerCount > 0 ? 'bad' : '');
+
+  // senior rows
+  document.getElementById('seniorRows').innerHTML = state.seniors.map(s => `
+    <tr>
+      <td><strong>${s.name}</strong> <span class="muted">${s.age}세</span></td>
+      <td>${s.region}</td>
+      <td>${s.guardian}</td>
+      <td><span class="pill ${s.status}">${LEVEL_TEXT[s.status]}</span></td>
+      <td>${s.battery}%</td>
+      <td>${CareSafe.fmtTime(s.lastPing)}</td>
+      <td class="muted">${s.note}</td>
+    </tr>
+  `).join('');
+
+  // feed
+  const feed = state.alerts.slice(0, 15);
+  document.getElementById('feedList').innerHTML = feed.map(a => {
+    const senior = state.seniors.find(x => x.id === a.uid);
+    return `
+      <li class="list-item ${a.level}">
+        <div class="icon">${ICONS[a.type] || '🔔'}</div>
+        <div class="body">
+          <div class="t">${a.text}</div>
+          <div class="s">${senior ? senior.name + ' · ' : ''}${CareSafe.fmtTime(a.time)}</div>
+        </div>
+      </li>`;
+  }).join('') || '<li class="muted" style="padding:20px;text-align:center">알림 없음</li>';
+}
+
+CareSafe.subscribe((msg) => {
+  render();
+  if (msg.type === 'alert' && msg.payload) {
+    const state = CareSafe.load();
+    const senior = state.seniors.find(s => s.id === msg.payload.uid);
+    CareSafe.toast((senior ? senior.name + ' · ' : '') + msg.payload.text, msg.payload.level);
+  }
+});
+
+render();
+setInterval(render, 30000);
+
+// stack admin grid on small screens
+function resize() {
+  const g = document.getElementById('grid');
+  g.style.gridTemplateColumns = window.innerWidth < 900 ? '1fr' : '2fr 1fr';
+}
+window.addEventListener('resize', resize); resize();
+</script>
+</body>
+</html>

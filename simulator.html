@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>IoT 시뮬레이터 · CareSafe</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="page">
+<div class="mobile-shell">
+  <header class="app-bar">
+    <div class="hstack">
+      <span class="brand-logo">📟</span>
+      <div>
+        <h1>IoT 기기 시뮬레이터</h1>
+        <div class="sub">ESP32 실물 대체 · 시연용</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="content">
+    <div class="card">
+      <div class="title-row">
+        <h2>대상 선택</h2>
+        <span class="muted">이 기기가 부착된 시니어</span>
+      </div>
+      <select id="uidSelect" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; font-size:15px; font-family:inherit;"></select>
+    </div>
+
+    <div class="card">
+      <h2>🆘 긴급 호출 버튼 (물리 버튼 에뮬레이션)</h2>
+      <div class="sos-wrap">
+        <button class="sos-btn" id="sosBtn">SOS</button>
+        <div class="sos-hint">3초 길게 누르면 실제 기기에서 긴급 호출됩니다</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>센서 이벤트 트리거</h2>
+      <div class="stack">
+        <button class="btn block" style="background:#EF4444" onclick="trigger('fall')">⚠️ 낙상 감지 (가속도계)</button>
+        <button class="btn block" style="background:#F59E0B" onclick="trigger('inactivity')">⏸️ 장시간 비활동 감지</button>
+        <button class="btn block" style="background:var(--ok)" onclick="trigger('activity')">🟢 활동 감지 (정상 신호)</button>
+        <button class="btn block" style="background:#6366F1" onclick="trigger('medication')">💊 복약 체크 누락</button>
+        <button class="btn block ghost" onclick="trigger('battery')">🔋 배터리 경고 발생</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>기기 상태</h2>
+      <ul class="list">
+        <li class="list-item ok"><div class="icon">📡</div><div class="body"><div class="t">LTE-M 연결</div><div class="s">신호 강도 -72dBm · 정상</div></div></li>
+        <li class="list-item ok"><div class="icon">🔋</div><div class="body"><div class="t">배터리 92%</div><div class="s">예상 사용 시간 18시간</div></div></li>
+        <li class="list-item ok"><div class="icon">📍</div><div class="body"><div class="t">GPS 위치 동기화</div><div class="s">서울 강남구 · 오차 8m</div></div></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>데모 리셋</h2>
+      <p class="muted" style="margin-bottom:10px">모든 알림과 상태를 초기 시드 데이터로 되돌립니다.</p>
+      <button class="btn ghost block" onclick="CareSafe.reset()">🔄 데모 초기화</button>
+    </div>
+  </section>
+</div>
+
+<script src="app.js"></script>
+<script>
+function populateSelect() {
+  const state = CareSafe.load();
+  const sel = document.getElementById('uidSelect');
+  sel.innerHTML = state.seniors.map(s =>
+    `<option value="${s.id}" ${s.id === state.activeUid ? 'selected' : ''}>${s.name} (${s.age}세) · ${s.region}</option>`
+  ).join('');
+  sel.onchange = () => CareSafe.setActive(sel.value);
+}
+
+const PRESETS = {
+  sos:         { type: 'sos',         level: 'danger', text: '🆘 긴급 호출 — SOS 버튼 눌림' },
+  fall:        { type: 'fall',        level: 'danger', text: '⚠️ 낙상 감지 — 가속도 9.2G' },
+  inactivity:  { type: 'inactivity',  level: 'warn',   text: '장시간 비활동 — 2시간 움직임 없음' },
+  activity:    { type: 'activity',    level: 'ok',     text: '활동 감지 — 정상 리듬' },
+  medication:  { type: 'medication',  level: 'warn',   text: '복약 체크 누락 — 오전 약 미복용' },
+  battery:     { type: 'battery',     level: 'warn',   text: '기기 배터리 20% 미만 — 충전 필요' }
+};
+
+function trigger(kind) {
+  const state = CareSafe.load();
+  const preset = PRESETS[kind];
+  const a = CareSafe.addAlert({ uid: state.activeUid, type: preset.type, level: preset.level, text: preset.text });
+  CareSafe.toast('이벤트 전송됨 → 보호자에게 알림', preset.level);
+}
+
+document.getElementById('sosBtn').addEventListener('click', () => trigger('sos'));
+
+populateSelect();
+CareSafe.subscribe(() => populateSelect());
+</script>
+</body>
+</html>

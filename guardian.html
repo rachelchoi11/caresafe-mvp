@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#005F73">
+<title>보호자 · CareSafe</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="page">
+<div class="mobile-shell">
+  <header class="app-bar">
+    <div class="hstack">
+      <span class="brand-logo">CS</span>
+      <div>
+        <h1 id="whoTitle">부모님 상태</h1>
+        <div class="sub" id="whoSub">연결됨 · 실시간</div>
+      </div>
+    </div>
+    <div class="right">
+      <span class="pill primary"><span class="dot pulse-dot"></span> 실시간</span>
+    </div>
+  </header>
+
+  <section class="content">
+    <div class="status-hero" id="hero">
+      <div class="who" id="heroWho">김영자 어머니 · 78세</div>
+      <div class="state" id="heroState">정상</div>
+      <div class="desc" id="heroDesc">마지막 활동 감지: 방금 전</div>
+      <div class="time" id="heroTime">오늘 오전 09:32 체크인 완료</div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat"><div class="n" id="sBattery">92%</div><div class="l">기기 배터리</div></div>
+      <div class="stat"><div class="n" id="sPing">3분 전</div><div class="l">마지막 신호</div></div>
+    </div>
+
+    <div class="card">
+      <div class="title-row">
+        <h2>최근 알림</h2>
+        <span class="muted" id="alertCount"></span>
+      </div>
+      <ul class="list" id="alertList"></ul>
+    </div>
+
+    <div class="card">
+      <div class="title-row">
+        <h2>돌봄 대상자 선택</h2>
+        <span class="muted">복수 부모님 지원</span>
+      </div>
+      <ul class="list" id="seniorSwitch"></ul>
+    </div>
+
+    <div class="card">
+      <h2>긴급 연락</h2>
+      <div class="stack">
+        <button class="btn block" onclick="alert('데모: 119 자동 연결 및 위치 전송')">🚨 119 긴급 신고</button>
+        <button class="btn ghost block" onclick="alert('데모: 담당 간호사 전화 연결')">☎️ 병원 퇴원지원팀 전화</button>
+      </div>
+    </div>
+  </section>
+
+  <nav class="tabs">
+    <a href="guardian.html" class="active"><span class="ic">🏠</span>홈</a>
+    <a href="#" onclick="alert('데모: 활동 그래프 화면')"><span class="ic">📊</span>활동</a>
+    <a href="#" onclick="alert('데모: AI 돌봄 코디네이터 상담')"><span class="ic">💬</span>상담</a>
+    <a href="#" onclick="alert('데모: 설정')"><span class="ic">⚙️</span>설정</a>
+  </nav>
+</div>
+
+<script src="app.js"></script>
+<script>
+const ICONS = { sos: '🆘', fall: '⚠️', battery: '🔋', medication: '💊', activity: '🟢', inactivity: '⏸️' };
+const LEVEL_TEXT = { ok: '정상', warn: '주의', danger: '위급' };
+
+function render() {
+  const state = CareSafe.load();
+  const active = state.seniors.find(s => s.id === state.activeUid) || state.seniors[0];
+
+  // hero
+  const hero = document.getElementById('hero');
+  hero.className = 'status-hero ' + (active.status === 'ok' ? '' : active.status);
+  document.getElementById('heroWho').textContent = active.name + ' ' + (active.name.endsWith('자') || active.name.endsWith('숙') || active.name.endsWith('애') ? '어머니' : '아버지') + ' · ' + active.age + '세';
+  document.getElementById('heroState').textContent = LEVEL_TEXT[active.status] || '정상';
+  const lastAlert = state.alerts.find(a => a.uid === active.id);
+  document.getElementById('heroDesc').textContent = active.status === 'danger' ? '긴급 신호 수신 — 즉시 확인 필요' : active.status === 'warn' ? (lastAlert?.text || '주의 필요') : '마지막 활동 감지: ' + CareSafe.fmtTime(active.lastPing);
+  document.getElementById('heroTime').textContent = active.note;
+
+  // stats
+  document.getElementById('sBattery').textContent = active.battery + '%';
+  document.getElementById('sPing').textContent = CareSafe.fmtTime(active.lastPing);
+
+  // alerts
+  const mine = state.alerts.filter(a => a.uid === active.id).slice(0, 6);
+  const ul = document.getElementById('alertList');
+  ul.innerHTML = mine.map(a => `
+    <li class="list-item ${a.level}">
+      <div class="icon">${ICONS[a.type] || '🔔'}</div>
+      <div class="body">
+        <div class="t">${a.text}</div>
+        <div class="s">${CareSafe.fmtTime(a.time)} · <span class="pill ${a.level}">${LEVEL_TEXT[a.level]}</span></div>
+      </div>
+    </li>`).join('') || '<li class="muted" style="padding:16px; text-align:center">아직 알림이 없습니다</li>';
+  document.getElementById('alertCount').textContent = mine.length + '건';
+
+  // switcher
+  const sw = document.getElementById('seniorSwitch');
+  sw.innerHTML = state.seniors.map(s => `
+    <li class="list-item ${s.id === active.id ? 'ok' : ''}" style="cursor:pointer" onclick="CareSafe.setActive('${s.id}'); render();">
+      <div class="icon">${s.id === active.id ? '✅' : '👵'}</div>
+      <div class="body">
+        <div class="t">${s.name} (${s.age}세)</div>
+        <div class="s">${s.region} · ${s.guardian}</div>
+      </div>
+      <span class="pill ${s.status}">${LEVEL_TEXT[s.status]}</span>
+    </li>`).join('');
+}
+
+CareSafe.subscribe((msg) => {
+  if (msg.type === 'alert' && msg.payload) {
+    const state = CareSafe.load();
+    if (msg.payload.uid === state.activeUid) {
+      CareSafe.toast(msg.payload.text, msg.payload.level);
+    }
+  }
+  render();
+});
+
+render();
+setInterval(render, 30000); // refresh relative timestamps
+</script>
+</body>
+</html>
