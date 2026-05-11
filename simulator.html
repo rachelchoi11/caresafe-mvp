@@ -5,6 +5,56 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>IoT 시뮬레이터 · CareSafe</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+  /* 티어 토글 */
+  .tier-toggle { display:flex; gap:0; background:#F1F5F9; padding:4px; border-radius:12px; }
+  .tier-toggle button {
+    flex:1; padding:10px; border:none; background:transparent;
+    border-radius:8px; font-size:14px; font-weight:600; color:#64748B;
+    cursor:pointer; font-family:inherit; transition:all 0.15s;
+  }
+  .tier-toggle button.active { background:white; color:#005F73; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+  .tier-toggle button .badge {
+    display:inline-block; background:#FCD34D; color:#92400E;
+    font-size:10px; padding:1px 6px; border-radius:999px; margin-left:4px; font-weight:700;
+  }
+  .tier-toggle button.active .badge { background:#FCD34D; }
+
+  /* 시니어 친화 큰 버튼 (보급형) */
+  .senior-btn {
+    width:100%; padding:24px 16px; border:none; border-radius:16px;
+    font-size:20px; font-weight:700; cursor:pointer; font-family:inherit;
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.06); transition:transform 0.1s, box-shadow 0.15s;
+    margin-bottom:12px;
+  }
+  .senior-btn:active { transform:translateY(1px); box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+  .senior-btn .ic { font-size:32px; }
+  .senior-btn.med { background:#DCFCE7; color:#166534; border:2px solid #86EFAC; }
+  .senior-btn.act { background:#DBEAFE; color:#1E40AF; border:2px solid #93C5FD; }
+  .senior-btn.help { background:#FEE2E2; color:#991B1B; border:2px solid #FCA5A5; }
+
+  /* 고급형 — 센싱 노드 카드 */
+  .sensor-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  .sensor-node {
+    background:#F8FAFC; border:1px solid var(--border); border-radius:10px;
+    padding:10px 6px; text-align:center;
+  }
+  .sensor-node .room { font-size:12px; color:#64748B; font-weight:600; }
+  .sensor-node .icon { font-size:24px; margin:6px 0; }
+  .sensor-node .state {
+    font-size:11px; padding:2px 6px; border-radius:999px;
+    background:#DCFCE7; color:#166534; display:inline-block;
+  }
+  .sensor-node .state.idle { background:#F1F5F9; color:#64748B; }
+
+  /* v1.5 라벨 */
+  .v15-label {
+    background:#FEF3C7; color:#92400E; padding:8px 12px; border-radius:8px;
+    font-size:12px; line-height:1.5; margin-bottom:12px;
+    border:1px solid #FCD34D;
+  }
+</style>
 </head>
 <body class="page">
 <div class="mobile-shell">
@@ -13,7 +63,7 @@
       <span class="brand-logo">📟</span>
       <div>
         <h1>IoT 기기 시뮬레이터</h1>
-        <div class="sub">ESP32 실물 대체 · 시연용</div>
+        <div class="sub" id="tierSub">보급형 패키지 시연</div>
       </div>
     </div>
   </header>
@@ -21,12 +71,27 @@
   <section class="content">
     <div class="card">
       <div class="title-row">
-        <h2>대상 선택</h2>
+        <h2>패키지 티어</h2>
+        <span class="muted" id="tierTag">보급형 1:1</span>
+      </div>
+      <div class="tier-toggle">
+        <button id="tierBasic" class="active" onclick="setTier('basic')">보급형 (1:1)</button>
+        <button id="tierPremium" onclick="setTier('premium')">고급형 <span class="badge">v1.5</span></button>
+      </div>
+      <p class="muted" id="tierDesc" style="margin-top:10px; font-size:13px; line-height:1.5">
+        보호자 앱 + SOS 버튼 + 응급정보 카드 + 대응가이드 + 생활안전 체크리스트. 9~15만 원대 1:1 패키지.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="title-row">
+        <h2>대상 시니어</h2>
         <span class="muted">이 기기가 부착된 시니어</span>
       </div>
       <select id="uidSelect" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; font-size:15px; font-family:inherit;"></select>
     </div>
 
+    <!-- SOS는 모든 티어 공통 -->
     <div class="card">
       <h2>🆘 긴급 호출 버튼 (물리 버튼 에뮬레이션)</h2>
       <div class="sos-wrap">
@@ -35,24 +100,92 @@
       </div>
     </div>
 
-    <div class="card">
-      <h2>센서 이벤트 트리거</h2>
-      <div class="stack">
-        <button class="btn block" style="background:#EF4444" onclick="trigger('fall')">⚠️ 낙상 감지 (가속도계)</button>
-        <button class="btn block" style="background:#F59E0B" onclick="trigger('inactivity')">⏸️ 장시간 비활동 감지</button>
-        <button class="btn block" style="background:var(--ok)" onclick="trigger('activity')">🟢 활동 감지 (정상 신호)</button>
-        <button class="btn block" style="background:#6366F1" onclick="trigger('medication')">💊 복약 체크 누락</button>
-        <button class="btn block ghost" onclick="trigger('battery')">🔋 배터리 경고 발생</button>
+    <!-- ===== 보급형 영역 ===== -->
+    <div id="basicSection">
+      <div class="card">
+        <h2>시니어 일상 액션 (큰 버튼)</h2>
+        <p class="muted" style="margin-bottom:14px; font-size:13px">
+          시니어 본인이 직접 누르는 버튼. 한 화면에 하나의 액션, 글자·아이콘 크게.
+        </p>
+        <button class="senior-btn med" onclick="trigger('med_confirm')">
+          <span class="ic">💊</span><span>오늘 약 먹었어요</span>
+        </button>
+        <button class="senior-btn act" onclick="trigger('checkin')">
+          <span class="ic">🟢</span><span>나 잘 있어요</span>
+        </button>
+        <button class="senior-btn help" onclick="trigger('help_request')">
+          <span class="ic">🤝</span><span>도움이 필요해요</span>
+        </button>
+      </div>
+
+      <div class="card">
+        <h2>운영 측 이벤트 트리거 (시연용)</h2>
+        <p class="muted" style="margin-bottom:10px; font-size:13px">
+          시연 시 보호자 화면에 어떻게 보이는지 확인용. 실제 보급형에선 자동 발생.
+        </p>
+        <div class="stack">
+          <button class="btn block" style="background:#F59E0B" onclick="trigger('medication')">💊 복약 체크 누락 (운영 알림)</button>
+          <button class="btn block ghost" onclick="trigger('battery')">🔋 기기 배터리 부족</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>기기 상태 — 보급형 SOS 단말</h2>
+        <ul class="list">
+          <li class="list-item ok"><div class="icon">📡</div><div class="body"><div class="t">LTE-M 연결</div><div class="s">신호 강도 -72dBm · 정상</div></div></li>
+          <li class="list-item ok"><div class="icon">🔋</div><div class="body"><div class="t">배터리 92%</div><div class="s">예상 사용 시간 18시간</div></div></li>
+        </ul>
       </div>
     </div>
 
-    <div class="card">
-      <h2>기기 상태</h2>
-      <ul class="list">
-        <li class="list-item ok"><div class="icon">📡</div><div class="body"><div class="t">LTE-M 연결</div><div class="s">신호 강도 -72dBm · 정상</div></div></li>
-        <li class="list-item ok"><div class="icon">🔋</div><div class="body"><div class="t">배터리 92%</div><div class="s">예상 사용 시간 18시간</div></div></li>
-        <li class="list-item ok"><div class="icon">📍</div><div class="body"><div class="t">GPS 위치 동기화</div><div class="s">서울 강남구 · 오차 8m</div></div></li>
-      </ul>
+    <!-- ===== 고급형 영역 ===== -->
+    <div id="premiumSection" style="display:none">
+      <div class="v15-label">
+        ⚙️ <strong>v1.5 시뮬레이션 라벨</strong> — 메인 허브·센싱 노드·낙상 의심 알고리즘은 v1.5 로드맵 기능.
+        이 영역은 사업계획서 ‘고급형 패키지’ 시연용. MVP 단계에선 알고리즘 검증·오탐률 측정이 우선.
+      </div>
+
+      <div class="card">
+        <h2>메인 허브 + 센싱 노드 3</h2>
+        <p class="muted" style="margin-bottom:10px; font-size:13px">
+          카메라 없는 움직임 변화 감지. 거실·침실·욕실 비접촉 노드.
+        </p>
+        <div class="sensor-grid">
+          <div class="sensor-node">
+            <div class="room">거실</div><div class="icon">🛋️</div>
+            <div class="state">활동 중</div>
+          </div>
+          <div class="sensor-node">
+            <div class="room">침실</div><div class="icon">🛏️</div>
+            <div class="state idle">정적</div>
+          </div>
+          <div class="sensor-node">
+            <div class="room">욕실</div><div class="icon">🚿</div>
+            <div class="state idle">정적</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>고급형 이벤트 트리거</h2>
+        <p class="muted" style="margin-bottom:10px; font-size:13px">
+          보조 감지 신호 → 보호자 확인 단계로 전달. 자동 진단·판별 아님.
+        </p>
+        <div class="stack">
+          <button class="btn block" style="background:#EF4444" onclick="trigger('fall')">⚠️ 낙상 의심 신호 — 확인 필요</button>
+          <button class="btn block" style="background:#F59E0B" onclick="trigger('inactivity')">⏸️ 장시간 비활동 감지</button>
+          <button class="btn block" style="background:var(--ok)" onclick="trigger('activity')">🟢 활동 감지 (정상 신호)</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>기기 상태 — 고급형 메인 허브</h2>
+        <ul class="list">
+          <li class="list-item ok"><div class="icon">📡</div><div class="body"><div class="t">메인 허브 WiFi 연결</div><div class="s">홈 라우터 연결 · 신호 양호</div></div></li>
+          <li class="list-item ok"><div class="icon">🔌</div><div class="body"><div class="t">전원 상시 연결</div><div class="s">상시 동작</div></div></li>
+          <li class="list-item ok"><div class="icon">📍</div><div class="body"><div class="t">센싱 노드 3대 정상</div><div class="s">거실·침실·욕실 모두 연결</div></div></li>
+        </ul>
+      </div>
     </div>
 
     <div class="card">
@@ -75,23 +208,48 @@ function populateSelect() {
   sel.onchange = () => CareSafe.setActive(sel.value);
 }
 
+// 알림 프리셋 — 멘토 톤 정렬: "낙상 감지" → "낙상 의심 신호"
 const PRESETS = {
-  sos:         { type: 'sos',         level: 'danger', text: '🆘 긴급 호출 — SOS 버튼 눌림' },
-  fall:        { type: 'fall',        level: 'danger', text: '⚠️ 낙상 감지 — 가속도 9.2G' },
-  inactivity:  { type: 'inactivity',  level: 'warn',   text: '장시간 비활동 — 2시간 움직임 없음' },
-  activity:    { type: 'activity',    level: 'ok',     text: '활동 감지 — 정상 리듬' },
-  medication:  { type: 'medication',  level: 'warn',   text: '복약 체크 누락 — 오전 약 미복용' },
-  battery:     { type: 'battery',     level: 'warn',   text: '기기 배터리 20% 미만 — 충전 필요' }
+  sos:           { type: 'sos',         level: 'danger', text: '🆘 긴급 호출 — SOS 버튼 눌림' },
+  fall:          { type: 'fall',        level: 'danger', text: '⚠️ 낙상 의심 신호 — 확인 필요 (보조 감지)' },
+  inactivity:    { type: 'inactivity',  level: 'warn',   text: '장시간 비활동 — 2시간 움직임 없음' },
+  activity:      { type: 'activity',    level: 'ok',     text: '활동 감지 — 정상 리듬' },
+  medication:    { type: 'medication',  level: 'warn',   text: '복약 체크 누락 — 오전 약 미복용' },
+  battery:       { type: 'battery',     level: 'warn',   text: '기기 배터리 20% 미만 — 충전 필요' },
+  // 보급형 시니어 직접 액션
+  med_confirm:   { type: 'activity',    level: 'ok',     text: '💊 복약 확인 — 시니어 직접 확인 완료' },
+  checkin:       { type: 'activity',    level: 'ok',     text: '🟢 일일 체크인 — “나 잘 있어요” 응답' },
+  help_request:  { type: 'sos',         level: 'warn',   text: '🤝 도움 요청 — 시니어 직접 요청 (비응급)' },
 };
 
 function trigger(kind) {
   const state = CareSafe.load();
   const preset = PRESETS[kind];
-  const a = CareSafe.addAlert({ uid: state.activeUid, type: preset.type, level: preset.level, text: preset.text });
+  if (!preset) return;
+  CareSafe.addAlert({ uid: state.activeUid, type: preset.type, level: preset.level, text: preset.text });
   CareSafe.toast('이벤트 전송됨 → 보호자에게 알림', preset.level);
 }
 
 document.getElementById('sosBtn').addEventListener('click', () => trigger('sos'));
+
+// ===== 티어 토글 =====
+const TIER_TEXT = {
+  basic: '보호자 앱 + SOS 버튼 + 응급정보 카드 + 대응가이드 + 생활안전 체크리스트. 9~15만 원대 1:1 패키지.',
+  premium: '보급형 구성 + 메인 허브 1대 + 센싱 노드 3대 + 낙상 의심 감지 + 위험 알림 리포트. 39만 원대 (v1.5 로드맵).',
+};
+function setTier(tier) {
+  document.getElementById('tierBasic').classList.toggle('active', tier === 'basic');
+  document.getElementById('tierPremium').classList.toggle('active', tier === 'premium');
+  document.getElementById('basicSection').style.display = tier === 'basic' ? 'block' : 'none';
+  document.getElementById('premiumSection').style.display = tier === 'premium' ? 'block' : 'none';
+  document.getElementById('tierTag').textContent = tier === 'basic' ? '보급형 1:1' : '고급형 (v1.5)';
+  document.getElementById('tierSub').textContent = tier === 'basic' ? '보급형 패키지 시연' : '고급형 패키지 시연 (v1.5 라벨)';
+  document.getElementById('tierDesc').textContent = TIER_TEXT[tier];
+  localStorage.setItem('caresafe:simTier', tier);
+}
+// 마지막 선택한 티어 기억
+const savedTier = localStorage.getItem('caresafe:simTier') || 'basic';
+setTier(savedTier);
 
 populateSelect();
 CareSafe.subscribe(() => populateSelect());
