@@ -14,6 +14,9 @@ import { initializeApp }
 import {
   getDatabase, ref, set, get, push, onValue, serverTimestamp, off,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 
 // Firebase 콘솔에서 발급받은 config — apiKey는 식별자(비밀 아님).
 // 실제 보안은 RTDB ‘규칙’으로 통제 (학습 가이드 6장 참조).
@@ -30,6 +33,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
 // ----- 헬퍼: 경로 단위 read/write -----
 
@@ -59,12 +64,31 @@ function watchPath(path, callback) {
   return () => off(target);
 }
 
+// ----- Auth helpers -----
+
+// Google 팝업 로그인. 사용자가 Google 계정 선택 → user 객체 반환.
+async function signInGoogle() {
+  const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
+}
+
+// 로그아웃.
+async function signOutUser() {
+  await signOut(auth);
+}
+
+// 로그인 상태 변경 구독. 콜백 인자: user 객체 또는 null.
+function observeAuth(callback) {
+  return onAuthStateChanged(auth, callback);
+}
+
 // 콘솔에서 수동 테스트 가능하도록 전역 노출.
 // 운영 단계엔 제거하거나 디버그 플래그로 감쌀 것.
 window.CareSafeFB = {
-  app, db,
+  app, db, auth,
   writePath, readPath, pushChild, watchPath,
   serverTimestamp,
+  signInGoogle, signOutUser, observeAuth,
 };
 
 console.log("[CareSafe FB] Firebase 초기화 완료 ·", firebaseConfig.projectId);

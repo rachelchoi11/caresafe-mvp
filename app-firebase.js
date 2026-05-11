@@ -20,14 +20,31 @@ const FB_MODE = params.get("mode") === "firebase";
 if (!FB_MODE) {
   console.log("[CareSafe] 로컬 모드. URL에 ?mode=firebase 붙이면 Firebase 모드로 전환.");
 } else {
-  console.log("[CareSafe] Firebase 모드 시작…");
+  console.log("[CareSafe] Firebase 모드 시작 — 인증 대기 중…");
   try {
     const FB = await waitForFB();
+    // 보안 규칙 적용 후 Firebase 읽기는 auth 필요.
+    // auth-guard.js가 로그인 완료 후 caresafe-auth-ready 이벤트 발화.
+    await waitForAuth();
+    console.log("[CareSafe] 인증 완료. Firebase 어댑터 활성화…");
     installFirebaseAdapter(FB);
   } catch (e) {
     console.error("[CareSafe] Firebase 어댑터 활성화 실패:", e);
     alert("Firebase 연결 실패: " + e.message + "\n로컬 모드로 동작합니다.");
   }
+}
+
+// auth-guard.js가 발화하는 caresafe-auth-ready 이벤트 대기.
+// 이미 로그인된 경우엔 window.CareSafeUser가 채워져 있음.
+async function waitForAuth(timeoutMs = 60000) {
+  if (window.CareSafeUser) return window.CareSafeUser;
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("인증 대기 타임아웃")), timeoutMs);
+    window.addEventListener("caresafe-auth-ready", (e) => {
+      clearTimeout(t);
+      resolve(e.detail);
+    }, { once: true });
+  });
 }
 
 async function waitForFB(timeoutMs = 5000) {

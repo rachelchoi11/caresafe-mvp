@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>개인정보 처리방침 · CareSafe</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  body.page { background:#F8FAFC; }
+  .doc { max-width:720px; margin:0 auto; padding:24px 20px 80px; }
+  .doc h1 { font-size:24px; margin:0 0 6px; color:#0F172A; }
+  .doc .sub { color:#64748B; font-size:13px; margin-bottom:24px; }
+  .doc h2 { font-size:16px; margin:28px 0 8px; color:#0F172A; }
+  .doc p, .doc li { color:#475569; font-size:14px; line-height:1.7; }
+  .doc ol, .doc ul { margin:6px 0 12px; padding-left:22px; }
+  .doc .warn {
+    background:#FEF3C7; border:1px solid #FCD34D; color:#92400E;
+    padding:14px; border-radius:10px; margin:12px 0; font-size:13px; line-height:1.6;
+  }
+  .doc .table {
+    border:1px solid #E2E8F0; border-radius:10px; padding:12px;
+    margin:10px 0; font-size:13px; background:white;
+  }
+  .doc a { color:#0A9396; }
+  .doc strong { color:#0F172A; }
+</style>
+</head>
+<body class="page">
+<div class="doc">
+  <h1>CareSafe 개인정보 처리방침</h1>
+  <div class="sub">시행일: 2026-05-11 (베타) · 최종 개정: 2026-05-11</div>
+
+  <div class="warn">
+    <strong>⚠️ 베타 단계 안내</strong><br>
+    본 처리방침은 베타 단계 임시본입니다. 정식 출시 전 PIPA(개인정보보호법) 및 의료법 검토 후 갱신됩니다.
+    의료정보는 <strong>민감정보</strong>로 분류되어 별도의 명시적 동의 후 처리됩니다.
+  </div>
+
+  <h2>1. 처리하는 개인정보 항목</h2>
+
+  <div class="table">
+    <strong>보호자 (회원) 정보</strong>
+    <ul>
+      <li>이름·이메일 (Google 로그인을 통해 자동 수집)</li>
+      <li>프로필 사진 URL (Google 로그인 제공값)</li>
+      <li>서비스 이용 기록 (로그인 시각·알림 응답 시간)</li>
+    </ul>
+  </div>
+
+  <div class="table">
+    <strong>시니어 (수혜자) 정보 — 보호자가 등록</strong>
+    <ul>
+      <li>이름·생년·성별·거주지 (식별 정보)</li>
+      <li>혈액형·알레르기·복용약·기저질환·이식 의료기기 등 (<strong>민감정보</strong>)</li>
+      <li>주치의·응급 연락처</li>
+      <li>SOS 호출·활동 신호 이력</li>
+      <li>DNR·사전연명의료의향서 등록 여부</li>
+    </ul>
+  </div>
+
+  <h2>2. 처리 목적</h2>
+  <ol>
+    <li>보호자가 시니어 상태를 실시간 확인할 수 있도록 알림·이력 제공</li>
+    <li>응급 상황에서 발견자(119·이웃·요양보호사)에게 환자 기본 정보 표시 (응급카드)</li>
+    <li>AI 보조 기능 — 대응가이드 생성, 응급카드 항목 정리, 알림 우선순위 분류</li>
+    <li>서비스 개선·통계 (식별 정보 제거 후)</li>
+  </ol>
+
+  <h2>3. 처리 및 보관 기간</h2>
+  <ul>
+    <li>회원 정보: 회원 탈퇴 시까지 보관, 탈퇴 즉시 파기 (관계 법령상 의무 보관분 제외)</li>
+    <li>시니어 의료정보: 회원 탈퇴 또는 보호자의 삭제 요청 시까지</li>
+    <li>알림·이력 데이터: 최대 1년 (이후 익명화 통계로만 보존)</li>
+    <li>AI 처리 캐시: 30일 (반복 호출 비용·지연 감소 목적)</li>
+  </ul>
+
+  <h2>4. 제3자 제공</h2>
+  <p>회원의 동의 없이 제3자에게 개인정보를 제공하지 않습니다. 단, 다음의 경우 예외:</p>
+  <ul>
+    <li>법령에 따라 수사 기관·법원 등이 요청한 경우</li>
+    <li>응급 상황에서 보호자의 명시적 요청으로 119·의료기관에 정보 전달</li>
+    <li>응급카드 QR/NFC를 통해 발견자가 접근하는 경우 (회원이 의도한 노출)</li>
+  </ul>
+
+  <h2>5. 처리 위탁</h2>
+  <p>다음 외부 서비스에 일부 처리를 위탁합니다. 위탁 시 보안·비밀유지 의무가 적용됩니다.</p>
+  <ul>
+    <li><strong>Google Firebase</strong> (Google LLC) — 데이터 저장·실시간 동기화·인증. 데이터 위치: 싱가포르.</li>
+    <li><strong>OpenAI API</strong> (OpenAI LLC) — AI 대응가이드·응급카드 항목 정리·안부 톡 톤 추천. 의료정보 일부가 전송될 수 있으며, OpenAI 정책상 API 데이터는 학습에 사용되지 않습니다.</li>
+  </ul>
+
+  <h2>6. 국외 이전</h2>
+  <p>Google Firebase는 싱가포르 리전에 데이터를 저장하며, OpenAI API는 미국에서 처리됩니다. 회원은 가입 시 이 국외 이전에 동의하는 것으로 간주됩니다.</p>
+
+  <h2>7. 회원의 권리</h2>
+  <ul>
+    <li>본인·시니어 정보의 열람·정정·삭제 요청</li>
+    <li>처리 정지 요청</li>
+    <li>동의 철회 (단, 철회 시 서비스 이용이 제한될 수 있음)</li>
+    <li>요청 방법: 앱 내 설정 또는 support 이메일</li>
+  </ul>
+
+  <h2>8. 보안 조치</h2>
+  <ul>
+    <li>Firebase Security Rules로 인증된 보호자만 자신의 시니어 정보 접근</li>
+    <li>의료정보 전송 시 HTTPS 암호화</li>
+    <li>AI API 호출 시 비식별화 가능 항목은 사전 익명화</li>
+    <li>접근 권한 최소화 원칙 (운영진도 필요 시에만 접근)</li>
+  </ul>
+
+  <h2>9. 개인정보 보호 책임자</h2>
+  <p>베타 단계: <strong>서비스 운영 책임자 (출시 시 별도 지정)</strong> · 연락: support@caresafe.example</p>
+
+  <h2>10. 변경 고지</h2>
+  <p>본 처리방침이 변경될 경우 시행 7일 전 앱 내 공지로 안내합니다. 중요한 변경은 회원에게 직접 알림으로 전달합니다.</p>
+
+  <p style="margin-top:40px;color:#94A3B8;font-size:12px;text-align:center">
+    본 문서는 베타 단계 임시본입니다. 정식 출시 전 법무·PIPA 자문을 거쳐 갱신됩니다.
+  </p>
+</div>
+</body>
+</html>
