@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A9396">
+<title>계정 설정 · CareSafe</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .set-profile {
+    display:flex; align-items:center; gap:14px; padding:8px 0;
+  }
+  .set-profile img, .set-profile .ph {
+    width:56px; height:56px; border-radius:50%; object-fit:cover;
+    background:#94A3B8; color:white; display:flex; align-items:center;
+    justify-content:center; font-size:22px; font-weight:700;
+  }
+  .set-profile .info .name { font-size:17px; font-weight:700; color:#0F172A; }
+  .set-profile .info .email { font-size:13px; color:#64748B; margin-top:2px; }
+
+  .set-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #F1F5F9; font-size:14px; }
+  .set-row:last-child { border-bottom:none; }
+  .set-row .k { color:#475569; }
+  .set-row .v { color:#0F172A; font-weight:600; }
+  .set-row .v.ok { color:#16a34a; }
+  .set-row .v.warn { color:#ea580c; }
+  .set-senior-item {
+    display:flex; gap:10px; padding:10px; background:#F8FAFC;
+    border-radius:8px; margin-bottom:6px; font-size:14px;
+  }
+  .danger-zone {
+    background:#FEE2E2; border:1px solid #FCA5A5; border-radius:12px;
+    padding:14px; margin-top:14px;
+  }
+  .danger-zone h3 { color:#991B1B; margin:0 0 6px; font-size:14px; }
+  .danger-zone p { color:#7F1D1D; font-size:12px; margin:0 0 10px; line-height:1.5; }
+  .btn.danger {
+    background:#DC2626; color:white; border:none; padding:12px;
+    border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; width:100%;
+  }
+</style>
+</head>
+<body class="page">
+<div class="mobile-shell">
+  <header class="app-bar">
+    <div class="hstack">
+      <a href="guardian.html" style="text-decoration:none; color:#64748B; font-size:18px; padding:4px 8px">←</a>
+      <h1>계정 설정</h1>
+    </div>
+  </header>
+
+  <section class="content">
+    <div class="card">
+      <h2>프로필</h2>
+      <div class="set-profile" id="profile">
+        <div class="ph" id="profilePh">?</div>
+        <div class="info">
+          <div class="name" id="profileName">로그인 정보 로딩 중…</div>
+          <div class="email" id="profileEmail"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>가입 현황</h2>
+      <div class="set-row"><span class="k">가입일</span><span class="v" id="setJoinDate">—</span></div>
+      <div class="set-row"><span class="k">계정 역할</span><span class="v" id="setRole">—</span></div>
+      <div class="set-row"><span class="k">등록한 부모님</span><span class="v" id="setSeniorCount">— 명</span></div>
+    </div>
+
+    <div class="card">
+      <h2>동의 상태</h2>
+      <div class="set-row"><span class="k">이용약관 동의</span><span class="v ok" id="agToS">—</span></div>
+      <div class="set-row"><span class="k">개인정보 처리방침 동의</span><span class="v ok" id="agPrivacy">—</span></div>
+      <div class="set-row"><span class="k">민감정보 처리 동의</span><span class="v ok" id="agSensitive">시니어 등록 시 진술 확인</span></div>
+      <div class="stack" style="margin-top:10px">
+        <a class="btn ghost block" href="terms.html" target="_blank" style="text-decoration:none; text-align:center">📄 이용약관 보기</a>
+        <a class="btn ghost block" href="privacy.html" target="_blank" style="text-decoration:none; text-align:center">🔒 개인정보 처리방침</a>
+        <a class="btn ghost block" href="consent.html" target="_blank" style="text-decoration:none; text-align:center">📋 민감정보 처리 동의 안내</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>등록한 부모님 목록</h2>
+      <ul id="seniorList" class="list"></ul>
+      <button class="btn block" onclick="location.href='guardian.html'" style="margin-top:10px">⬅ 보호자 앱으로</button>
+    </div>
+
+    <div class="card">
+      <h2>알림 설정</h2>
+      <p class="muted" style="font-size:13px">v0.2 베타에서는 알림 토글이 단순화되어 있습니다. 향후 알림 채널·시간대·종류별 세밀 제어 추가 예정.</p>
+      <div class="set-row">
+        <span class="k">앱 내 토스트 알림</span>
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="toggleToast" checked> 활성</label>
+      </div>
+      <div class="set-row">
+        <span class="k">브라우저 푸시 (v1.0+)</span>
+        <span class="v warn">개발 예정</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>계정 작업</h2>
+      <button class="btn ghost block" onclick="signOut()" style="margin-bottom:8px">↪ 로그아웃</button>
+
+      <div class="danger-zone">
+        <h3>⚠️ 위험 영역</h3>
+        <p>계정 삭제 시 내가 등록한 부모님 정보·알림 이력·체크리스트가 모두 즉시 파기됩니다. 복구 불가.</p>
+        <button class="btn danger" onclick="deleteAccount()">🗑 계정 삭제 (탈퇴)</button>
+      </div>
+    </div>
+
+    <div style="text-align:center; color:#94A3B8; font-size:11px; padding:20px 0">
+      CareSafe v0.2 (베타) · 2026
+    </div>
+  </section>
+</div>
+
+<script src="app.js"></script>
+<script type="module" src="auth-guard.js"></script>
+<script type="module" src="app-firebase.js"></script>
+<script>
+function fmtDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('ko-KR');
+}
+
+function render() {
+  const user = window.CareSafeUser;
+  const state = CareSafe.load();
+
+  if (user) {
+    document.getElementById('profileName').textContent = user.displayName || '(이름 없음)';
+    document.getElementById('profileEmail').textContent = user.email || '';
+    if (user.photoURL) {
+      const ph = document.getElementById('profilePh');
+      ph.outerHTML = `<img src="${user.photoURL}" alt="" id="profilePh">`;
+    } else {
+      document.getElementById('profilePh').textContent = (user.displayName || user.email || '?')[0].toUpperCase();
+    }
+  } else {
+    document.getElementById('profileName').textContent = '로컬 모드 (로그인 없음)';
+    document.getElementById('profileEmail').textContent = '?mode=firebase 로 접속 시 Google 로그인 활성화';
+  }
+
+  // 가입 현황 — Firebase /users/{uid}에서 가져오기
+  if (user && window.CareSafeFB) {
+    window.CareSafeFB.readPath(`/users/${user.uid}`).then(u => {
+      if (u) {
+        document.getElementById('setJoinDate').textContent = fmtDate(u.createdAt);
+        document.getElementById('setRole').textContent = u.role === 'guardian' ? '보호자' : (u.role || '—');
+        document.getElementById('agToS').textContent = u.acceptedToS ? '동의 완료 · ' + fmtDate(u.acceptedToS) : '미동의';
+        document.getElementById('agPrivacy').textContent = u.acceptedPrivacy ? '동의 완료 · ' + fmtDate(u.acceptedPrivacy) : '미동의';
+      }
+    }).catch(e => console.warn('user 정보 로드 실패:', e));
+  } else {
+    document.getElementById('setJoinDate').textContent = '—';
+    document.getElementById('setRole').textContent = '—';
+    document.getElementById('agToS').textContent = '로컬 모드';
+    document.getElementById('agPrivacy').textContent = '로컬 모드';
+  }
+
+  // 시니어 목록
+  document.getElementById('setSeniorCount').textContent = state.seniors.length + '명';
+  const list = document.getElementById('seniorList');
+  list.innerHTML = state.seniors.map(s => `
+    <li class="set-senior-item">
+      <div style="flex:1">
+        <div style="font-weight:600">${s.name} (${s.age}세)</div>
+        <div style="color:#64748B; font-size:12px">${s.region || ''} · ${s.note || ''}</div>
+      </div>
+      <span style="color:#94A3B8; font-size:12px; align-self:center">${s.qrToken ? 'QR ✓' : 'QR ✗'}</span>
+    </li>
+  `).join('') || '<li class="muted" style="padding:14px; text-align:center">등록된 부모님이 없습니다.</li>';
+}
+
+async function signOut() {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  if (window.CareSafeFB?.signOutUser) {
+    await window.CareSafeFB.signOutUser();
+  } else {
+    alert('로컬 모드에서는 로그아웃이 필요 없습니다.');
+  }
+}
+
+async function deleteAccount() {
+  const user = window.CareSafeUser;
+  if (!user) {
+    alert('로컬 모드 — 계정 삭제는 Firebase 모드에서만 가능합니다.');
+    return;
+  }
+  const confirmText = '내 계정과 등록한 부모님 정보를 모두 삭제합니다';
+  const answer = prompt(`정말 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.\n\n계속하려면 아래 문구를 그대로 입력하세요:\n\n"${confirmText}"`);
+  if (answer !== confirmText) {
+    alert('확인 문구가 일치하지 않습니다. 취소되었습니다.');
+    return;
+  }
+  try {
+    const FB = window.CareSafeFB;
+    const state = CareSafe.load();
+    // 내가 등록한 시니어 → public/private + qr_index 모두 삭제
+    for (const s of state.seniors) {
+      await FB.writePath(`/seniors_public/${s.id}`, null);
+      await FB.writePath(`/seniors_private/${s.id}`, null);
+      if (s.qrToken) await FB.writePath(`/qr_index/${s.qrToken}`, null);
+    }
+    // 알림 (내 시니어 것만)
+    const myUids = new Set(state.seniors.map(s => s.id));
+    for (const a of state.alerts) {
+      if (myUids.has(a.uid)) await FB.writePath(`/alerts/${a.id}`, null);
+    }
+    // user 레코드
+    await FB.writePath(`/users/${user.uid}`, null);
+    await FB.signOutUser();
+    alert('계정이 삭제되었습니다. 안녕히 가세요.');
+    location.href = 'index.html';
+  } catch (e) {
+    alert('삭제 실패: ' + e.message);
+  }
+}
+
+CareSafe.subscribe(() => render());
+window.addEventListener('caresafe-auth-ready', () => render());
+render();
+</script>
+</body>
+</html>
