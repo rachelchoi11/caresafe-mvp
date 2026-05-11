@@ -199,6 +199,7 @@
 <script type="module" src="auth-guard.js"></script>
 <script type="module" src="app-firebase.js"></script>
 <script src="data/guide.js"></script>
+<script src="data/ai_guide_variants.js"></script>
 <script src="data/checklist.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
@@ -222,11 +223,11 @@ function render() {
   document.getElementById('sBattery').textContent = active.battery + '%';
   document.getElementById('sPing').textContent = CareSafe.fmtTime(active.lastPing);
 
-  // alerts (클릭 시 대응가이드 모달)
+  // alerts (클릭 시 대응가이드 모달 — AI 변형 매칭)
   const mine = state.alerts.filter(a => a.uid === active.id).slice(0, 6);
   const ul = document.getElementById('alertList');
   ul.innerHTML = mine.map(a => `
-    <li class="list-item alert-clickable ${a.level}" onclick="openGuide('${a.type}')">
+    <li class="list-item alert-clickable ${a.level}" onclick="openGuideForAlert('${a.id}')">
       <div class="icon">${ICONS[a.type] || '🔔'}</div>
       <div class="body">
         <div class="t">${a.text}</div>
@@ -254,22 +255,118 @@ function render() {
   renderChecklist(active.id);
 }
 
-// ===== 대응가이드 모달 =====
-function openGuide(type) {
-  const guide = (window.CareSafeGuide || {})[type];
-  if (!guide) {
-    alert('대응가이드가 등록되지 않은 알림 유형입니다.');
+// ===== 대응가이드 모달 (AI 변형 매칭 + 정적 fallback) =====
+//
+// 매칭 로직:
+//   1. alert.type + alert.level → 변형 키 (sos→sos_urgent/sos_help, 그 외 그대로)
+//   2. 시니어 프로필(critical_meds, cognitive, recent surgery)로 점수 계산
+//   3. 최고 점수 AI 변형 사용 (data/ai_guide_variants.js)
+//   4. AI 변형 없으면 정적 가이드(data/guide.js) 사용
+//   5. 정적도 없으면 에러 표시
+
+function _scoreProfileMatch(match, senior) {
+  if (!match) return 0;
+  let score = 0;
+  // 항응고제·항혈소판제·인슐린·스테로이드 매칭
+  if (match.critical_meds) {
+    const seniorCrit = (senior.meds || []).map(m => m.critical).filter(Boolean);
+    if (match.critical_meds.some(c => seniorCrit.includes(c))) score += 10;
+  }
+  // 인지 기준선 매칭
+  if (match.cognitive) {
+    if (senior.cognitiveBaseline && match.cognitive.includes(senior.cognitiveBaseline)) score += 10;
+  }
+  // 최근 수술 (recent_surgery_weeks 이내)
+  if (match.recent_surgery_weeks) {
+    const surgeries = (senior.recentHistory || []).filter(h =>
+      h.type === '수술' || h.type === '시술'
+    );
+    for (const s of surgeries) {
+      const daysSince = (Date.now() - new Date(s.date).getTime()) / 86400000;
+      if (daysSince <= match.recent_surgery_weeks * 7) { score += 10; break; }
+    }
+  }
+  return score;
+}
+
+function _resolveVariantKey(alert) {
+  // alert.type='sos' + level=danger → sos_urgent
+  // alert.type='sos' + level=warn → sos_help
+  // 그 외 type 그대로
+  if (alert.type === 'sos') {
+    return alert.level === 'danger' ? 'sos_urgent' : 'sos_help';
+  }
+  if (alert.type === 'inactivity' && /무소식/.test(alert.text || '')) {
+    return 'no_signal';
+  }
+  return alert.type;
+}
+
+function _selectGuide(alert, senior) {
+  const variantKey = _resolveVariantKey(alert);
+  const variants = (window.CareSafeGuideVariants || {})[variantKey] || [];
+
+  if (variants.length && senior) {
+    const scored = variants.map(v => ({ v, score: _scoreProfileMatch(v.match, senior) }));
+    scored.sort((a, b) => b.score - a.score);
+    const best = scored[0];
+    if (best.score > 0) {
+      return { ...best.v, _source: `AI 변형 (${best.v.profile})` };
+    }
+    // 점수 0이면 default 프로필 우선
+    const def = variants.find(v => v.profile === 'default') || scored[0].v;
+    return { ...def, _source: 'AI 변형 (기본)' };
+  }
+
+  // Fallback: 정적 가이드 (data/guide.js)
+  const staticGuide = (window.CareSafeGuide || {})[alert.type];
+  if (staticGuide) {
+    return { ...staticGuide, _source: '정적 가이드' };
+  }
+  return null;
+}
+
+function openGuideForAlert(alertId) {
+  const state = CareSafe.load();
+  const alert = state.alerts.find(a => a.id === alertId);
+  if (!alert) {
+    console.warn('Alert not found:', alertId);
     return;
   }
-  document.getElementById('guideTitle').textContent = guide.title;
-  document.getElementById('guideIntro').textContent = guide.intro;
+  const senior = state.seniors.find(s => s.id === alert.uid);
+  const guide = _selectGuide(alert, senior);
+  if (!guide) {
+    window.alert('대응가이드가 등록되지 않은 알림 유형입니다.');
+    return;
+  }
+  _renderGuideModal(guide);
+}
+
+// 기존 openGuide(type) — 시뮬레이터 호환용 (외부 호출 시) + 직접 type만 받기
+function openGuide(type) {
+  // 가짜 alert 객체로 변형 선택
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid);
+  const fakeAlert = { type, level: type === 'sos' ? 'danger' : 'warn', text: '' };
+  const guide = _selectGuide(fakeAlert, senior);
+  if (!guide) {
+    window.alert('대응가이드가 등록되지 않은 알림 유형입니다.');
+    return;
+  }
+  _renderGuideModal(guide);
+}
+
+function _renderGuideModal(guide) {
+  document.getElementById('guideTitle').textContent = guide.title || '';
+  document.getElementById('guideIntro').textContent =
+    (guide.intro || '') + (guide._source ? ` · ${guide._source}` : '');
   const sev = document.getElementById('guideSeverity');
   sev.textContent = LEVEL_TEXT[guide.severity] || '';
   sev.className = 'severity-pill ' + (guide.severity || '');
   const stepsEl = document.getElementById('guideSteps');
-  stepsEl.innerHTML = guide.steps.map(s => `
+  stepsEl.innerHTML = (guide.steps || []).map(s => `
     <li><div>
-      <div class="do">${s.do}</div>
+      <div class="do">${s.do || ''}</div>
       <div class="note">${s.note || ''}</div>
     </div></li>`).join('');
   const pitfallBox = document.getElementById('guidePitfalls');
@@ -282,6 +379,7 @@ function openGuide(type) {
   }
   document.getElementById('guideModal').style.display = 'flex';
 }
+
 function closeGuide() {
   document.getElementById('guideModal').style.display = 'none';
 }
