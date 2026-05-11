@@ -32,11 +32,64 @@
   .em-row .v { color:#0F172A; font-weight:600; text-align:right; flex:1; padding-left:12px; }
   .em-row .v.danger { color:#DC2626; font-weight:700; }
 
-  .em-meds li, .em-disease li { padding:8px 0; border-bottom:1px solid #F1F5F9; font-size:15px; list-style:none; }
-  .em-meds li:last-child, .em-disease li:last-child { border-bottom:none; }
+  .em-meds li, .em-disease li, .em-history li, .em-implants li { padding:8px 0; border-bottom:1px solid #F1F5F9; font-size:15px; list-style:none; }
+  .em-meds li:last-child, .em-disease li:last-child, .em-history li:last-child, .em-implants li:last-child { border-bottom:none; }
   .em-meds .name { font-weight:700; color:#0F172A; }
   .em-meds .meta { color:#64748B; font-size:13px; margin-top:2px; }
   .em-disease li { color:#0F172A; font-weight:600; }
+
+  /* 항응고제·인슐린·스테로이드 적색 강조 — 출혈·저혈당·부신위기 분기점 */
+  .em-meds li.critical {
+    background:#FEE2E2; border-left:4px solid #DC2626; padding-left:10px;
+    margin:6px -6px; border-radius:0 6px 6px 0; border-bottom:none;
+  }
+  .em-meds li.critical .name { color:#991B1B; }
+  .em-meds li.critical .crit-badge {
+    display:inline-block; background:#DC2626; color:white;
+    font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px;
+    margin-left:6px; letter-spacing:0.3px;
+  }
+
+  /* 알레르기 양상 분리 */
+  .em-allergy { padding:8px 0; border-bottom:1px solid #F1F5F9; }
+  .em-allergy:last-child { border-bottom:none; }
+  .em-allergy .agent { font-weight:700; color:#0F172A; font-size:15px; }
+  .em-allergy .reaction { color:#64748B; font-size:13px; margin-top:2px; }
+  .em-allergy.severe { background:#FEE2E2; border-left:4px solid #DC2626; padding-left:10px; margin:6px -6px; border-radius:0 6px 6px 0; border-bottom:none; }
+  .em-allergy.severe .agent { color:#991B1B; }
+  .em-allergy.severe .reaction { color:#991B1B; font-weight:600; }
+  .em-allergy .sev-badge {
+    display:inline-block; font-size:11px; font-weight:700; padding:2px 8px;
+    border-radius:999px; margin-left:6px;
+  }
+  .em-allergy.severe .sev-badge { background:#DC2626; color:white; }
+  .em-allergy.mild .sev-badge { background:#FED7AA; color:#9A3412; }
+
+  /* DNR 박스 */
+  .em-dnr {
+    background:#F0F9FF; border:1px solid #38BDF8; padding:14px;
+    border-radius:10px; margin:8px 0;
+  }
+  .em-dnr.registered { background:#FEF3C7; border-color:#FCD34D; }
+  .em-dnr .label { font-weight:700; color:#0F172A; font-size:14px; }
+  .em-dnr .value { color:#64748B; font-size:13px; margin-top:4px; line-height:1.5; }
+  .em-dnr.registered .value { color:#92400E; }
+
+  /* 인지·이식 등 메타 정보 */
+  .em-meta-row { display:flex; justify-content:space-between; padding:6px 0;
+                 border-bottom:1px solid #F1F5F9; font-size:14px; }
+  .em-meta-row:last-child { border-bottom:none; }
+  .em-meta-row .k { color:#64748B; }
+  .em-meta-row .v { color:#0F172A; font-weight:600; text-align:right; }
+  .em-meta-row .v.warn { color:#9A3412; }
+
+  /* 면책 + 출처 */
+  .em-disclaimer-detailed {
+    background:#FFFBEB; border:1px solid #FCD34D; padding:14px;
+    border-radius:10px; margin-top:14px; font-size:12px; line-height:1.65; color:#78350F;
+  }
+  .em-disclaimer-detailed h3 { font-size:13px; margin:0 0 6px; color:#92400E; }
+  .em-disclaimer-detailed .sources { margin-top:8px; padding-top:8px; border-top:1px solid #FDE68A; color:#92400E; font-size:11px; }
 
   .em-call {
     display:block; width:100%;
@@ -105,77 +158,202 @@ async function waitForFB(timeoutMs = 5000) {
   return window.CareSafeFB;
 }
 
+// 약물 카테고리 라벨 (적색 강조 대상)
+const CRITICAL_LABEL = {
+  anticoagulant: '항응고제',
+  antiplatelet: '항혈소판제',
+  insulin: '인슐린',
+  steroid: '스테로이드',
+};
+
+// 인지 기준선 표시명
+const COG_LABEL = {
+  alert: '명료',
+  mild_impairment: '경도 인지 저하 (의식 저하 시 평소 대비 비교 필요)',
+  dementia_mild: '경증 치매 (평소 시간·장소 일부 혼란)',
+  dementia_moderate: '중등도 치매 (평소 익숙한 사람만 인지)',
+};
+
+// MRI 위험도 라벨
+const MRI_LABEL = {
+  safe: 'MRI 안전',
+  caution: 'MRI 주의 (재질 확인 필요)',
+  unsafe: 'MRI 금기',
+};
+
+// 의향서 라벨
+const AD_REGISTERED_INFO =
+  '등록 내용은 국립연명의료관리기관 (1855-0075, lst.go.kr) 조회. 카드에는 내용 미포함.';
+
+function fmtKoDate(s) {
+  if (!s) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  return m ? `${m[1]}.${m[2]}.${m[3]}` : esc(s);
+}
+
 function render(senior) {
-  // 우선순위 1번 응급 연락처 — tel: 링크의 핵심.
   const contacts = (senior.emergencyContacts || []).slice().sort((a, b) => (a.priority || 99) - (b.priority || 99));
   const c1 = contacts[0];
   const c2 = contacts[1];
 
-  const meds = (senior.meds || []).map(m =>
+  // 약물 — critical 분류된 것 적색 강조 + 뱃지
+  const meds = (senior.meds || []).map(m => {
+    const isCritical = !!m.critical;
+    const badge = isCritical
+      ? `<span class="crit-badge">${esc(CRITICAL_LABEL[m.critical] || '핵심')}</span>`
+      : '';
+    return `<li class="${isCritical ? 'critical' : ''}">
+      <div class="name">${esc(m.name)} <span style="color:${isCritical ? '#991B1B' : '#64748B'};font-weight:500">${esc(m.dose)}</span>${badge}</div>
+      <div class="meta">${esc(m.time)} · ${esc(m.for || '')}</div>
+    </li>`;
+  }).join('');
+
+  const diseases = (senior.diseases || []).map(d => `<li>${esc(d)}</li>`).join('');
+
+  // 알레르기 — 반응 양상 + severity 분리. 구버전(문자열) 호환.
+  let allergiesHtml;
+  if (!(senior.allergies && senior.allergies.length)) {
+    allergiesHtml = '<div class="em-allergy"><div class="agent">없음</div></div>';
+  } else {
+    allergiesHtml = senior.allergies.map(a => {
+      // 구버전 호환: 문자열 → 객체 변환
+      const obj = typeof a === 'string' ? { agent: a, reaction: '미상', severity: 'mild' } : a;
+      const sev = obj.severity === 'severe' ? 'severe' : 'mild';
+      const sevText = sev === 'severe' ? '아나필락시스 위험' : '경증';
+      return `<div class="em-allergy ${sev}">
+        <div class="agent">${esc(obj.agent)} <span class="sev-badge">${sevText}</span></div>
+        <div class="reaction">반응 양상: ${esc(obj.reaction || '미상')}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // DNR / 사전연명의료의향서
+  const ad = senior.advanceDirective;
+  let adHtml;
+  if (ad && ad.registered) {
+    adHtml = `<div class="em-dnr registered">
+      <div class="label">✓ 사전연명의료의향서 등록됨</div>
+      <div class="value">등록번호: ${esc(ad.registryNumber || '-')}<br>${AD_REGISTERED_INFO}</div>
+    </div>`;
+  } else if (ad) {
+    adHtml = `<div class="em-dnr">
+      <div class="label">사전연명의료의향서 — 미등록</div>
+      <div class="value">의사결정 시 보호자(법정대리인) 의사 확인 필요</div>
+    </div>`;
+  } else {
+    adHtml = `<div class="em-dnr">
+      <div class="label">사전연명의료의향서 — 정보 없음</div>
+      <div class="value">보호자가 등록하지 않은 항목. 응급실 진입 시 보호자에게 확인 필요.</div>
+    </div>`;
+  }
+
+  // 최근 의료 이력 (2-4주)
+  const history = (senior.recentHistory || []).map(h =>
     `<li>
-       <div class="name">${esc(m.name)} <span style="color:#64748B;font-weight:500">${esc(m.dose)}</span></div>
-       <div class="meta">${esc(m.time)} · ${esc(m.for || "")}</div>
-     </li>`).join("");
+      <div style="font-weight:600;color:#0F172A">${fmtKoDate(h.date)} · ${esc(h.type)}</div>
+      <div style="color:#64748B;font-size:13px;margin-top:2px">${esc(h.description)}</div>
+    </li>`).join('');
 
-  const diseases = (senior.diseases || []).map(d => `<li>${esc(d)}</li>`).join("");
-  const allergies = (senior.allergies || []).length
-    ? senior.allergies.map(esc).join(", ")
-    : "없음";
+  // 이식 의료기기
+  const implants = (senior.implants || []).map(im =>
+    `<li>
+      <div style="font-weight:600;color:#0F172A">${esc(im.description)}</div>
+      <div style="color:#64748B;font-size:13px;margin-top:2px">
+        시술일 ${fmtKoDate(im.date)} · ${esc(MRI_LABEL[im.mriRisk] || '')}
+      </div>
+    </li>`).join('');
 
-  const docHospital = senior.doctor ? `${esc(senior.doctor.hospital)} · ${esc(senior.doctor.dept)}` : "—";
-  const docName = senior.doctor ? esc(senior.doctor.name || "") : "";
+  const assistive = (senior.assistiveDevices || []).join(' · ') || '없음';
+  const cogBase = COG_LABEL[senior.cognitiveBaseline] || '미등록';
+  const cogIsWarn = senior.cognitiveBaseline && senior.cognitiveBaseline !== 'alert';
 
-  root.className = "";
+  const docHospital = senior.doctor ? `${esc(senior.doctor.hospital)} · ${esc(senior.doctor.dept)}` : '—';
+  const docName = senior.doctor ? esc(senior.doctor.name || '') : '';
+  const hwText = (senior.height && senior.weight) ? `${esc(senior.height)}cm · ${esc(senior.weight)}kg` : '';
+
+  root.className = '';
   root.innerHTML = `
     <div class="em-hero">
       <span class="tag">🚨 응급정보 카드</span>
       <h1>${esc(senior.name)}</h1>
-      <div class="sub">${esc(senior.age)}세 · ${senior.gender === "M" ? "남성" : "여성"} · ${esc(senior.region || "")}</div>
+      <div class="sub">${esc(senior.age)}세 · ${senior.gender === 'M' ? '남성' : '여성'}${hwText ? ' · ' + hwText : ''} · ${esc(senior.region || '')}</div>
     </div>
 
     <div class="em-card">
       <h2>기본 의료 정보</h2>
-      <div class="em-row"><span class="k">혈액형</span><span class="v">${esc(senior.blood || "—")}</span></div>
-      <div class="em-row"><span class="k">알레르기</span><span class="v ${senior.allergies?.length ? "danger" : ""}">${allergies}</span></div>
+      <div class="em-row"><span class="k">혈액형</span><span class="v">${esc(senior.blood || '—')}</span></div>
+      <div class="em-row"><span class="k">인지 기준선 (평소)</span><span class="v ${cogIsWarn ? 'warn' : ''}">${esc(cogBase)}</span></div>
+    </div>
+
+    <div class="em-card">
+      <h2>알레르기 (반응 양상)</h2>
+      ${allergiesHtml}
     </div>
 
     <div class="em-card">
       <h2>기저질환 / 진단</h2>
-      <ul class="em-disease">${diseases || "<li>—</li>"}</ul>
+      <ul class="em-disease">${diseases || '<li>—</li>'}</ul>
     </div>
 
     <div class="em-card">
-      <h2>복용 약물</h2>
+      <h2>복용 약물 <span style="color:#64748B;font-weight:500;font-size:11px;letter-spacing:0">· 적색은 응급 분기 핵심 (출혈·저혈당·부신위기)</span></h2>
       <ul class="em-meds">${meds || "<li class='meta'>등록된 약물 없음</li>"}</ul>
+    </div>
+
+    <div class="em-card">
+      <h2>최근 의료 이력 (2~4주)</h2>
+      <ul class="em-history">${history || '<li style="color:#64748B">최근 이력 없음</li>'}</ul>
+    </div>
+
+    <div class="em-card">
+      <h2>이식·장착 의료기기</h2>
+      <ul class="em-implants">${implants || '<li style="color:#64748B">없음</li>'}</ul>
+      <div class="em-meta-row" style="margin-top:6px">
+        <span class="k">보조기기</span><span class="v">${esc(assistive)}</span>
+      </div>
+    </div>
+
+    <div class="em-card">
+      <h2>사전연명의료의향서 (DNR)</h2>
+      ${adHtml}
     </div>
 
     <div class="em-card">
       <h2>주치의</h2>
       <div class="em-row"><span class="k">병원·과</span><span class="v">${docHospital}</span></div>
-      <div class="em-row"><span class="k">담당의</span><span class="v">${docName || "—"}</span></div>
+      <div class="em-row"><span class="k">담당의</span><span class="v">${docName || '—'}</span></div>
       ${senior.doctor?.phone
-        ? `<a class="em-call secondary" href="tel:${esc(senior.doctor.phone)}">📞 주치의 연결<span class="sub">${esc(senior.doctor.phone)}</span></a>`
-        : ""}
+        ? `<a class="em-call secondary" href="tel:${esc(senior.doctor.phone)}">📞 주치의 외래<span class="sub">${esc(senior.doctor.phone)}</span></a>`
+        : ''}
+      ${senior.doctor?.erPhone
+        ? `<a class="em-call secondary" href="tel:${esc(senior.doctor.erPhone)}" style="margin-top:8px">🏥 병원 응급실<span class="sub">${esc(senior.doctor.erPhone)} (24시간)</span></a>`
+        : ''}
     </div>
 
     <div class="em-card">
       <h2>보호자 연락처 (우선순위)</h2>
       ${c1
         ? `<a class="em-call" href="tel:${esc(c1.phone)}">📞 1순위: ${esc(c1.name)}<span class="sub">${esc(c1.phone)}</span></a>`
-        : ""}
+        : ''}
       ${c2
         ? `<a class="em-call secondary" href="tel:${esc(c2.phone)}" style="margin-top:8px">📞 2순위: ${esc(c2.name)}<span class="sub">${esc(c2.phone)}</span></a>`
-        : ""}
+        : ''}
     </div>
 
-    <div class="em-warn">
-      ⚠️ 본 카드는 응급 상황에서 환자 식별·연락을 돕기 위한 정보입니다.
-      평상시 열람 금지. 의료 결정은 반드시 주치의 또는 응급의료진의 판단을 따릅니다.
+    <div class="em-disclaimer-detailed">
+      <h3>⚠️ 본 카드의 의료적 한계</h3>
+      본 정보는 보호자가 입력한 것으로, 의료기관 진단의 대체가 아닙니다.
+      활력징후·의식수준은 구급대/의료진의 현장 측정값을 우선합니다.
+      알레르기·복용약·DNR 정보는 가능한 한 원본 자료(처방전·사전연명의료의향서 등록증)로 재확인해 주십시오.
+      <div class="sources">
+        <strong>최신화:</strong> ${new Date().toLocaleDateString('ko-KR')} · <strong>출처:</strong> 보호자 등록 ·
+        <strong>항목 설계 근거:</strong> 보건복지부 응급의료정보제공 앱(E-Gen) · 의료기관평가인증원 인증기준 · 대한응급의학회 SAMPLE 표준 · 국립연명의료관리기관(연명의료결정법)
+      </div>
     </div>
 
     <div class="em-footer no-print">
       <button class="em-print-btn" onclick="window.print()">🖨 인쇄 / PDF로 저장</button>
-      <div style="margin-top:12px">CareSafe · 응급정보 카드 v1</div>
+      <div style="margin-top:12px">CareSafe · 응급정보 카드 v0.2</div>
     </div>
   `;
 }
