@@ -54,6 +54,23 @@
     font-size:12px; line-height:1.5; margin-bottom:12px;
     border:1px solid #FCD34D;
   }
+
+  /* SOS 누름 진행률 */
+  .sos-progress-wrap {
+    width:100%; margin-top:14px;
+  }
+  .sos-progress-bar {
+    width:100%; height:10px; background:#F1F5F9; border-radius:999px;
+    overflow:hidden; position:relative;
+  }
+  .sos-progress-bar > div {
+    height:100%; width:0%; background:#F59E0B; transition:width 0.05s linear;
+  }
+  .sos-progress-bar > div.danger { background:#DC2626; }
+  .sos-progress-label {
+    margin-top:6px; font-size:12px; color:#64748B; text-align:center;
+  }
+  .sos-btn.holding { transform:scale(0.96); box-shadow:0 0 0 12px rgba(220,38,38,0.25); }
 </style>
 </head>
 <body class="page">
@@ -91,41 +108,33 @@
       <select id="uidSelect" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; font-size:15px; font-family:inherit;"></select>
     </div>
 
-    <!-- SOS는 모든 티어 공통 -->
+    <!-- SOS는 모든 티어 공통 — 짧게(1초+)=도움 요청, 길게(3초+)=위급 -->
     <div class="card">
-      <h2>🆘 긴급 호출 버튼 (물리 버튼 에뮬레이션)</h2>
+      <h2>🆘 SOS 버튼 (물리 버튼 에뮬레이션)</h2>
+      <p class="muted" style="margin-bottom:12px; font-size:13px">
+        시니어가 직접 만지는 유일한 디바이스. 짧게 누르면 ‘도움 요청(주의)’, 3초 길게 누르면 ‘위급 호출(긴급)’.
+      </p>
       <div class="sos-wrap">
-        <button class="sos-btn" id="sosBtn">SOS</button>
-        <div class="sos-hint">3초 길게 누르면 실제 기기에서 긴급 호출됩니다</div>
+        <button class="sos-btn" id="sosBtn" aria-label="SOS 버튼 — 누르고 있으세요">SOS</button>
+        <div class="sos-hint" id="sosHint">눌러서 도움 요청 · 3초 길게 = 위급</div>
+        <div class="sos-progress-wrap" id="sosProgWrap" style="display:none">
+          <div class="sos-progress-bar"><div id="sosProgBar"></div></div>
+          <div class="sos-progress-label" id="sosProgLabel">누르고 있음…</div>
+        </div>
       </div>
     </div>
 
     <!-- ===== 보급형 영역 ===== -->
     <div id="basicSection">
       <div class="card">
-        <h2>시니어 일상 액션 (큰 버튼)</h2>
-        <p class="muted" style="margin-bottom:14px; font-size:13px">
-          시니어 본인이 직접 누르는 버튼. 한 화면에 하나의 액션, 글자·아이콘 크게.
-        </p>
-        <button class="senior-btn med" onclick="trigger('med_confirm')">
-          <span class="ic">💊</span><span>오늘 약 먹었어요</span>
-        </button>
-        <button class="senior-btn act" onclick="trigger('checkin')">
-          <span class="ic">🟢</span><span>나 잘 있어요</span>
-        </button>
-        <button class="senior-btn help" onclick="trigger('help_request')">
-          <span class="ic">🤝</span><span>도움이 필요해요</span>
-        </button>
-      </div>
-
-      <div class="card">
         <h2>운영 측 이벤트 트리거 (시연용)</h2>
         <p class="muted" style="margin-bottom:10px; font-size:13px">
-          시연 시 보호자 화면에 어떻게 보이는지 확인용. 실제 보급형에선 자동 발생.
+          시연 시 보호자 화면에 어떻게 보이는지 확인용. 실제 운영에선 IoT/AI가 자동 감지·발생. <strong>시니어가 직접 누르는 버튼은 SOS 하나뿐입니다.</strong>
         </p>
         <div class="stack">
           <button class="btn block" style="background:#F59E0B" onclick="trigger('medication')">💊 복약 체크 누락 (운영 알림)</button>
           <button class="btn block ghost" onclick="trigger('battery')">🔋 기기 배터리 부족</button>
+          <button class="btn block ghost" onclick="trigger('no_signal')">🌙 24시간 무소식 (보호자 안부 권유)</button>
         </div>
       </div>
 
@@ -209,17 +218,16 @@ function populateSelect() {
 }
 
 // 알림 프리셋 — 멘토 톤 정렬: "낙상 감지" → "낙상 의심 신호"
+// D등급 버튼(약/잘있어요/도움) 제거됨. SOS는 1초/3초 분기로 통합.
 const PRESETS = {
-  sos:           { type: 'sos',         level: 'danger', text: '🆘 긴급 호출 — SOS 버튼 눌림' },
+  sos_help:      { type: 'sos',         level: 'warn',   text: '🆘 도움 요청 — SOS 짧게 눌림 (비응급)' },
+  sos_urgent:    { type: 'sos',         level: 'danger', text: '🆘 위급 호출 — SOS 3초 길게 눌림' },
   fall:          { type: 'fall',        level: 'danger', text: '⚠️ 낙상 의심 신호 — 확인 필요 (보조 감지)' },
   inactivity:    { type: 'inactivity',  level: 'warn',   text: '장시간 비활동 — 2시간 움직임 없음' },
   activity:      { type: 'activity',    level: 'ok',     text: '활동 감지 — 정상 리듬' },
   medication:    { type: 'medication',  level: 'warn',   text: '복약 체크 누락 — 오전 약 미복용' },
   battery:       { type: 'battery',     level: 'warn',   text: '기기 배터리 20% 미만 — 충전 필요' },
-  // 보급형 시니어 직접 액션
-  med_confirm:   { type: 'activity',    level: 'ok',     text: '💊 복약 확인 — 시니어 직접 확인 완료' },
-  checkin:       { type: 'activity',    level: 'ok',     text: '🟢 일일 체크인 — “나 잘 있어요” 응답' },
-  help_request:  { type: 'sos',         level: 'warn',   text: '🤝 도움 요청 — 시니어 직접 요청 (비응급)' },
+  no_signal:     { type: 'inactivity',  level: 'warn',   text: '🌙 24시간 무소식 — 보호자 안부 전화 권유' },
 };
 
 function trigger(kind) {
@@ -230,7 +238,75 @@ function trigger(kind) {
   CareSafe.toast('이벤트 전송됨 → 보호자에게 알림', preset.level);
 }
 
-document.getElementById('sosBtn').addEventListener('click', () => trigger('sos'));
+// ===== SOS 짧게 / 길게 분기 =====
+// 누르고 있는 시간:
+//   - 0~1초: 무시 (실수 방지)
+//   - 1~3초: 도움 요청 (warn)
+//   - 3초+ : 위급 호출 (danger)
+const SOS_IGNORE_MS = 1000;
+const SOS_URGENT_MS = 3000;
+let sosPressStart = null;
+let sosTickTimer = null;
+
+const sosBtn = document.getElementById('sosBtn');
+const sosHint = document.getElementById('sosHint');
+const sosProgWrap = document.getElementById('sosProgWrap');
+const sosProgBar = document.getElementById('sosProgBar');
+const sosProgLabel = document.getElementById('sosProgLabel');
+
+function sosStart(e) {
+  e.preventDefault();
+  if (sosPressStart) return;
+  sosPressStart = Date.now();
+  sosBtn.classList.add('holding');
+  sosProgWrap.style.display = 'block';
+  sosProgBar.classList.remove('danger');
+  sosTick();
+  sosTickTimer = setInterval(sosTick, 50);
+}
+
+function sosTick() {
+  if (!sosPressStart) return;
+  const elapsed = Date.now() - sosPressStart;
+  const pct = Math.min(100, (elapsed / SOS_URGENT_MS) * 100);
+  sosProgBar.style.width = pct + '%';
+  if (elapsed < SOS_IGNORE_MS) {
+    sosProgLabel.textContent = '계속 누르세요…';
+  } else if (elapsed < SOS_URGENT_MS) {
+    sosProgLabel.textContent = `도움 요청 준비 · 위급은 3초 (현재 ${(elapsed/1000).toFixed(1)}초)`;
+  } else {
+    sosProgLabel.textContent = '⚠️ 위급 호출 활성 — 손 떼면 전송';
+    sosProgBar.classList.add('danger');
+  }
+}
+
+function sosEnd(e) {
+  if (e) e.preventDefault();
+  if (!sosPressStart) return;
+  const elapsed = Date.now() - sosPressStart;
+  clearInterval(sosTickTimer);
+  sosTickTimer = null;
+  sosPressStart = null;
+  sosBtn.classList.remove('holding');
+  sosProgWrap.style.display = 'none';
+  sosProgBar.style.width = '0%';
+  sosProgBar.classList.remove('danger');
+
+  if (elapsed < SOS_IGNORE_MS) {
+    CareSafe.toast('너무 짧게 눌렸습니다 (실수 방지 — 1초 이상 누르세요)', 'warn');
+  } else if (elapsed < SOS_URGENT_MS) {
+    trigger('sos_help');
+  } else {
+    trigger('sos_urgent');
+  }
+}
+
+sosBtn.addEventListener('mousedown', sosStart);
+sosBtn.addEventListener('touchstart', sosStart, { passive: false });
+sosBtn.addEventListener('mouseup', sosEnd);
+sosBtn.addEventListener('mouseleave', sosEnd);
+sosBtn.addEventListener('touchend', sosEnd);
+sosBtn.addEventListener('touchcancel', sosEnd);
 
 // ===== 티어 토글 =====
 const TIER_TEXT = {
