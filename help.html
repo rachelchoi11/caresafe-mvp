@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사용 가이드 · CareSafe</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  body.page { background:#F8FAFC; }
+  .help { max-width:720px; margin:0 auto; padding:24px 20px 80px; }
+  .help h1 { font-size:24px; color:#0F172A; margin:0 0 6px; }
+  .help .sub { color:#64748B; font-size:13px; margin-bottom:24px; }
+  .help h2 { font-size:17px; margin:28px 0 10px; color:#0F172A; display:flex; gap:8px; align-items:center; }
+  .help h2 .num {
+    background:#0A9396; color:white; width:28px; height:28px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;
+  }
+  .help p, .help li { color:#475569; font-size:14px; line-height:1.7; }
+  .help ol, .help ul { padding-left:20px; margin:8px 0 12px; }
+  .help .card-h {
+    background:white; border:1px solid #E2E8F0; border-radius:12px;
+    padding:16px; margin-bottom:14px;
+  }
+  .help .tip {
+    background:#F0FDFA; border-left:3px solid #14B8A6; padding:10px 14px;
+    border-radius:8px; font-size:13px; line-height:1.6; color:#0F766E; margin:10px 0;
+  }
+  .help .warn {
+    background:#FEF3C7; border-left:3px solid #F59E0B; padding:10px 14px;
+    border-radius:8px; font-size:13px; line-height:1.6; color:#92400E; margin:10px 0;
+  }
+  .help a.btn-link {
+    display:inline-block; padding:8px 14px; background:#0A9396; color:white;
+    border-radius:8px; text-decoration:none; font-weight:600; font-size:13px;
+  }
+  .help strong { color:#0F172A; }
+  .help kbd {
+    background:#F1F5F9; padding:2px 6px; border-radius:4px;
+    font-family:ui-monospace,Menlo,monospace; font-size:12px;
+  }
+</style>
+</head>
+<body class="page">
+<div class="help">
+  <a href="guardian.html" style="color:#64748B; text-decoration:none">← 보호자 앱</a>
+  <h1>CareSafe 사용 가이드</h1>
+  <div class="sub">처음 사용하시는 보호자(자녀)를 위한 5분 안내 · v0.2 베타</div>
+
+  <div class="warn">
+    ⚠️ <strong>본 서비스는 베타 단계입니다.</strong> 의료 진단·치료를 대체하지 않으며,
+    응급 상황에서는 반드시 119 신고를 우선해야 합니다.
+  </div>
+
+  <div class="card-h">
+    <h2><span class="num">1</span> 가장 먼저 — 부모님 등록</h2>
+    <p>보호자 앱 메인 화면의 <strong>‘돌봄 대상자 선택’</strong> 카드 아래
+       <kbd>➕ 부모님 추가</kbd> 버튼을 누르세요.</p>
+    <ol>
+      <li><strong>기본 정보</strong>: 이름·나이·성별·혈액형 (필수)</li>
+      <li><strong>응급 연락처</strong>: 1순위는 보호자 본인. 2순위로 다른 가족 추가 권장</li>
+      <li><strong>의료 정보</strong>: 알레르기·복용약·기저질환·주치의 (강력 권장)</li>
+      <li><strong>고급 정보</strong>: DNR·최근 이력·이식기기 등 (선택, 응급실에서 중요)</li>
+    </ol>
+    <div class="tip">💡 <strong>처방전·약봉투 사진을 미리 받아두세요.</strong>
+    약물명·용량을 직접 보고 입력하는 게 정확합니다.</div>
+  </div>
+
+  <div class="card-h">
+    <h2><span class="num">2</span> 응급카드 (QR / NFC) 발급</h2>
+    <p>부모님 등록이 완료되면 <strong>‘응급정보 카드 (QR)’</strong> 영역에서:</p>
+    <ul>
+      <li><strong>🔳 QR 카드 보기</strong> → 응급카드 페이지 QR 표시 (스캔하면 응급정보 페이지 열림)</li>
+      <li><strong>↗ 응급카드 페이지 열기</strong> → 직접 페이지 확인 (인쇄·PDF 저장 가능)</li>
+      <li><strong>인쇄</strong> → 명함 크기로 출력 → 부모님 지갑·냉장고·현관에 부착</li>
+    </ul>
+    <div class="tip">💡 NFC 카드 (실물 PVC 카드)는 출시 후 별도 발주 안내 예정.
+    당분간은 QR 인쇄본을 추천합니다.</div>
+  </div>
+
+  <div class="card-h">
+    <h2><span class="num">3</span> 알림이 오면</h2>
+    <p>부모님 기기에서 신호가 오면 보호자 앱 상단 상태 카드가
+       <span style="color:#16a34a;font-weight:700">녹색 정상</span>·<span style="color:#ea580c;font-weight:700">노랑 주의</span>·<span style="color:#dc2626;font-weight:700">빨강 위급</span> 으로 바뀝니다.</p>
+    <ol>
+      <li><strong>최근 알림 카드</strong>에서 항목을 탭하면 <strong>대응가이드 모달</strong>이 열림</li>
+      <li>알림 유형 + 부모님 의료 정보에 맞춰 <strong>단계별 행동 가이드 자동 표시</strong>
+        (예: 와파린 복용자 + SOS → 출혈 위험 강조)</li>
+      <li>가이드의 단계대로 행동 (전화·확인·119)</li>
+    </ol>
+    <div class="warn">⚠️ 위급(빨강) 알림 = <strong>즉시 부모님께 전화 후 응답 없으면 119</strong>.
+    가이드는 보조 자료이지 의사 결정을 대신하지 않습니다.</div>
+  </div>
+
+  <div class="card-h">
+    <h2><span class="num">4</span> 부모님께 안부 보내기</h2>
+    <p>‘부모님께 안부 보내기’ 카드에서 <kbd>💬 안부 톡 작성</kbd> 클릭:</p>
+    <ul>
+      <li>AI가 부모님 <strong>최근 상태에 맞춰 3개 톤</strong> 추천 (따뜻·일상·챙김)</li>
+      <li>마음에 드는 톤 선택 → 직접 편집 가능</li>
+      <li><strong>💬 문자로 보내기</strong> 또는 <strong>📋 카톡용 복사</strong></li>
+    </ul>
+    <div class="tip">💡 평상시·복약 누락 후·위급 회복 후·무소식 상황별로 추천 어조가 다릅니다.</div>
+  </div>
+
+  <div class="card-h">
+    <h2><span class="num">5</span> 매주 안전 체크 (3분)</h2>
+    <p>‘이번 주 안전 체크’ 카드 — 6개 항목으로 부모님 댁 환경 점검:</p>
+    <ul>
+      <li>욕실 미끄럼방지 매트 / 야간 동선 조명</li>
+      <li>1주일 약통 정리</li>
+      <li>응급카드 인쇄본 부착 / 응급 연락처 가족 공유</li>
+      <li>주 2회 이상 영상통화</li>
+    </ul>
+    <p class="muted" style="font-size:12px">매주 일요일 또는 방문 시 한 번씩 체크 권장.</p>
+  </div>
+
+  <div class="card-h">
+    <h2><span class="num">6</span> 무소식이 길어지면</h2>
+    <p>부모님 신호가 24시간+ 없으면 <strong>화면 상단에 노란 ‘무소식 알림’ 배너</strong>가 자동 표시됩니다.</p>
+    <ul>
+      <li>외출·여행 가능성도 있으니 <strong>먼저 전화</strong></li>
+      <li>응답 없으면 가까운 가족·이웃 방문 부탁</li>
+      <li>30분+ 미응답 시 119 신고 고려</li>
+    </ul>
+  </div>
+
+  <div class="card-h">
+    <h2><span class="num">7</span> 계정 설정·로그아웃</h2>
+    <p>하단 탭의 <kbd>⚙️ 설정</kbd>:</p>
+    <ul>
+      <li>등록한 부모님 목록·QR 발급 여부 확인</li>
+      <li>등록 시니어 삭제 (✕ 버튼)</li>
+      <li>이용약관·개인정보·민감정보 동의 안내 보기</li>
+      <li>로그아웃·계정 탈퇴 (PIPA 권리)</li>
+    </ul>
+  </div>
+
+  <div class="card-h">
+    <h2><span class="num">?</span> 자주 묻는 질문</h2>
+    <p><strong>Q. 부모님께 별도 앱을 설치해야 하나요?</strong><br>
+    A. 보급형은 물리 SOS 버튼만 필요합니다. 부모님 폰에 앱 설치 ❌.</p>
+    <p><strong>Q. 119에 자동 신고되나요?</strong><br>
+    A. 아니요. 응급 상황 판단·신고는 보호자가 직접. 자동 신고는 응급의료법상 금지.</p>
+    <p><strong>Q. 부모님 의료 정보가 외부로 새지 않나요?</strong><br>
+    A. AI 응답은 미리 만들어둔 답을 매칭 사용 — 운영 시 외부 AI에 부모님 정보 전송 ❌.
+    데이터는 Google Firebase (싱가포르)에 암호화 저장, 본인만 열람.</p>
+    <p><strong>Q. 응급카드 QR을 누가 봐도 부모님 정보가 노출되나요?</strong><br>
+    A. 토큰을 알아야 접근 가능 (지갑 안 카드 발견 시). 응급 상황 식별·연락 목적의 제한된 정보만 표시.</p>
+    <p><strong>Q. 베타 단계의 의미는?</strong><br>
+    A. 정식 출시 전 시범 운영. 법무·의료 자문 결과 반영·일부 기능 강화 예정.</p>
+  </div>
+
+  <p style="text-align:center;margin-top:30px">
+    <a class="btn-link" href="guardian.html">← 보호자 앱으로 돌아가기</a>
+  </p>
+  <p style="text-align:center;color:#94A3B8;font-size:11px;margin-top:14px">
+    CareSafe v0.2 · 베타
+  </p>
+</div>
+</body>
+</html>

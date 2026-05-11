@@ -170,8 +170,34 @@ function render() {
         <div style="color:#64748B; font-size:12px">${s.region || ''} · ${s.note || ''}</div>
       </div>
       <span style="color:#94A3B8; font-size:12px; align-self:center">${s.qrToken ? 'QR ✓' : 'QR ✗'}</span>
+      <button onclick="deleteSenior('${s.id}','${(s.name||'').replace(/'/g,'')}')"
+        style="background:#FEE2E2;color:#991B1B;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-weight:700;align-self:center;font-size:13px" title="시니어 삭제">✕</button>
     </li>
   `).join('') || '<li class="muted" style="padding:14px; text-align:center">등록된 부모님이 없습니다.</li>';
+}
+
+async function deleteSenior(uid, name) {
+  if (!confirm(`${name} 어르신을 등록 목록에서 삭제하시겠습니까?\n\n응급정보·QR 토큰·관련 알림이 모두 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+  try {
+    const state = CareSafe.load();
+    const target = state.seniors.find(s => s.id === uid);
+    state.seniors = state.seniors.filter(s => s.id !== uid);
+    // 관련 알림도 제거
+    state.alerts = state.alerts.filter(a => a.uid !== uid);
+    if (state.activeUid === uid) state.activeUid = state.seniors[0]?.id || null;
+    await CareSafe.save(state);
+
+    // Firebase 모드: qr_index도 정리
+    if (window.CareSafeFB && target?.qrToken) {
+      try {
+        await window.CareSafeFB.writePath(`/qr_index/${target.qrToken}`, null);
+      } catch (e) { console.warn('qr_index 정리 실패:', e); }
+    }
+    render();
+    if (window.CareSafe?.toast) CareSafe.toast(`${name} 어르신 삭제 완료`, 'ok');
+  } catch (e) {
+    alert('삭제 실패: ' + e.message);
+  }
 }
 
 async function signOut() {
