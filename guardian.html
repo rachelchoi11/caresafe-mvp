@@ -60,6 +60,32 @@
   .alert-clickable:hover { background:#F8FAFC; }
   .alert-chevron { color:#94A3B8; margin-left:auto; font-size:13px; }
 
+  /* 안부 톡 톤 카드 */
+  .msg-tone-card {
+    padding:12px; border:2px solid #E2E8F0; border-radius:12px;
+    margin-bottom:8px; cursor:pointer; transition:all 0.15s;
+    background:white;
+  }
+  .msg-tone-card:hover { border-color:#0A9396; }
+  .msg-tone-card.selected { border-color:#0A9396; background:#F0FDFA; }
+  .msg-tone-card .tone-label {
+    display:inline-block; padding:2px 10px; border-radius:999px;
+    font-size:11px; font-weight:700; color:white; margin-bottom:6px;
+    background:#0A9396;
+  }
+  .msg-tone-card .msg-text { color:#0F172A; font-size:14px; line-height:1.5; }
+  .msg-tone-card .msg-hint { color:#94A3B8; font-size:12px; margin-top:6px; }
+  .msg-context-badge {
+    display:inline-block; padding:3px 10px; border-radius:999px;
+    font-size:11px; font-weight:600; background:#F1F5F9; color:#475569;
+    margin-bottom:10px;
+  }
+  .msg-edit-area {
+    width:100%; min-height:80px; padding:10px; border:1px solid var(--border);
+    border-radius:10px; font-family:inherit; font-size:14px; resize:vertical;
+    margin-top:8px; line-height:1.5;
+  }
+
   /* 체크리스트 */
   .checklist-section { margin-bottom:14px; }
   .checklist-section:last-child { margin-bottom:0; }
@@ -145,6 +171,17 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="title-row">
+        <h2>부모님께 안부 보내기</h2>
+        <span class="muted" id="msgContextBadge">상태 확인 중…</span>
+      </div>
+      <p class="muted" style="font-size:13px; margin-bottom:10px">
+        AI가 부모님 최근 상태에 맞는 메시지 3개를 추천. 편집해서 카톡·문자로 직접 전송.
+      </p>
+      <button class="btn block" id="openMsgBtn">💬 안부 톡 작성</button>
+    </div>
+
     <div class="card" id="emergencyCard">
       <div class="title-row">
         <h2>응급정보 카드 (QR)</h2>
@@ -171,6 +208,28 @@
       <div id="checklistBody"></div>
     </div>
   </section>
+
+  <!-- 안부 톡 모달 -->
+  <div id="msgModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeMsgModal()">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeMsgModal()">✕</button>
+      <span class="msg-context-badge" id="msgCtxBadge">상태 분석 중…</span>
+      <h2 id="msgModalTitle">부모님께 안부 보내기</h2>
+      <p class="intro" id="msgIntro">아래 톤 중 하나 선택하거나 직접 편집하세요.</p>
+      <div id="msgToneList"></div>
+      <div style="margin-top:14px">
+        <label style="font-size:13px; font-weight:600; color:#475569">메시지 (편집 가능)</label>
+        <textarea id="msgEditArea" class="msg-edit-area" placeholder="톤을 선택하거나 직접 입력하세요"></textarea>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:14px">
+        <button class="btn block" id="msgSendSms" style="flex:1">💬 문자로 보내기</button>
+        <button class="btn block ghost" id="msgCopyKakao" style="flex:1">📋 카톡용 복사</button>
+      </div>
+      <p class="muted" style="font-size:11px; margin-top:10px; line-height:1.5">
+        문자: 폰의 기본 문자 앱이 열림 (수신자·메시지 자동 채움). 카톡: 텍스트가 클립보드에 복사됨 → 카톡에서 붙여넣기.
+      </p>
+    </div>
+  </div>
 
   <!-- 대응가이드 모달 -->
   <div id="guideModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeGuide()">
@@ -201,6 +260,7 @@
 <script src="data/guide.js"></script>
 <script src="data/ai_guide_variants.js"></script>
 <script src="data/checklist.js"></script>
+<script src="data/ai_message_variants.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
 const ICONS = { sos: '🆘', fall: '⚠️', battery: '🔋', medication: '💊', activity: '🟢', inactivity: '⏸️' };
@@ -253,6 +313,8 @@ function render() {
   renderEmergencyCard(active);
   // 이번 주 안전 체크
   renderChecklist(active.id);
+  // 안부 톡 컨텍스트 뱃지 갱신
+  updateMsgContextBadge();
 }
 
 // ===== 대응가이드 모달 (AI 변형 매칭 + 정적 fallback) =====
@@ -383,6 +445,111 @@ function _renderGuideModal(guide) {
 function closeGuide() {
   document.getElementById('guideModal').style.display = 'none';
 }
+
+// ===== 안부 톡 모달 (AI 변형 매칭) =====
+//
+// 컨텍스트 결정:
+//   - 최근 24h danger 알림 있음 → recent_danger
+//   - 최근 24h warn 알림 있음 → recent_warn
+//   - 12h+ 무신호 → inactive
+//   - 그 외 → normal
+// 각 컨텍스트에 3 톤 변형. 사용자가 선택 + 편집 + 카톡/문자 발송.
+
+const CTX_LABEL = {
+  normal: '평상시 안부',
+  recent_warn: '최근 주의 알림 있었음',
+  recent_danger: '최근 위급 상황 회복 후',
+  inactive: '오늘 신호 없음 (12h+)',
+};
+
+function determineMessageContext(senior, state) {
+  const now = Date.now();
+  const recent = state.alerts.filter(a => a.uid === senior.id && (now - a.time) < 24 * 3600 * 1000);
+  if (recent.some(a => a.level === 'danger')) return 'recent_danger';
+  if (recent.some(a => a.level === 'warn')) return 'recent_warn';
+  const lastPing = senior.lastPing || 0;
+  if ((now - lastPing) > 12 * 3600 * 1000) return 'inactive';
+  return 'normal';
+}
+
+function updateMsgContextBadge() {
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid);
+  if (!senior) return;
+  const ctx = determineMessageContext(senior, state);
+  const badge = document.getElementById('msgContextBadge');
+  if (badge) badge.textContent = CTX_LABEL[ctx];
+}
+
+function openMsgModal() {
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid);
+  if (!senior) return alert('시니어 정보를 찾을 수 없습니다.');
+
+  const ctx = determineMessageContext(senior, state);
+  const variants = (window.CareSafeMessages || {})[ctx] || (window.CareSafeMessages || {}).normal || [];
+
+  document.getElementById('msgModalTitle').textContent = `${senior.name}님께 안부 보내기`;
+  document.getElementById('msgCtxBadge').textContent = CTX_LABEL[ctx] || '평상시';
+  document.getElementById('msgEditArea').value = '';
+
+  const listEl = document.getElementById('msgToneList');
+  listEl.innerHTML = variants.map((v, i) => `
+    <div class="msg-tone-card" data-idx="${i}" onclick="selectMsgTone(${i})">
+      <span class="tone-label">${v.tone_label || v.tone}</span>
+      <div class="msg-text">${v.message || ''}</div>
+      ${v.hint ? `<div class="msg-hint">💡 ${v.hint}</div>` : ''}
+    </div>
+  `).join('');
+
+  // 변형 저장 (selectMsgTone에서 사용)
+  window.__msgVariants = variants;
+  window.__msgSenior = senior;
+
+  document.getElementById('msgModal').style.display = 'flex';
+}
+
+function selectMsgTone(idx) {
+  const v = (window.__msgVariants || [])[idx];
+  if (!v) return;
+  document.getElementById('msgEditArea').value = v.message || '';
+  // 시각 선택 표시
+  document.querySelectorAll('.msg-tone-card').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+}
+
+function closeMsgModal() {
+  document.getElementById('msgModal').style.display = 'none';
+}
+
+function sendMsgSms() {
+  const text = document.getElementById('msgEditArea').value.trim();
+  if (!text) return alert('메시지가 비어있습니다.');
+  const senior = window.__msgSenior;
+  // 시니어 전화번호로 SMS 딥링크. iOS는 sms:; , 안드로이드는 sms:?body=
+  const phone = (senior?.phone || '').replace(/[^\d]/g, '');
+  const body = encodeURIComponent(text);
+  // 범용 포맷
+  const url = phone ? `sms:${phone}?body=${body}` : `sms:?body=${body}`;
+  location.href = url;
+  setTimeout(closeMsgModal, 500);
+}
+
+function copyMsgKakao() {
+  const text = document.getElementById('msgEditArea').value.trim();
+  if (!text) return alert('메시지가 비어있습니다.');
+  navigator.clipboard.writeText(text).then(() => {
+    CareSafe.toast('카톡용 메시지가 복사됨. 카톡을 열고 붙여넣으세요.', 'ok');
+    setTimeout(closeMsgModal, 800);
+  }).catch(() => {
+    alert('복사 실패. 직접 선택해서 복사해주세요.');
+  });
+}
+
+document.getElementById('openMsgBtn').addEventListener('click', openMsgModal);
+document.getElementById('msgSendSms').addEventListener('click', sendMsgSms);
+document.getElementById('msgCopyKakao').addEventListener('click', copyMsgKakao);
 
 // ===== 생활안전 체크리스트 =====
 function isoWeekKey(date = new Date()) {
