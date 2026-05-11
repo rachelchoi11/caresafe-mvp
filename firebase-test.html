@@ -220,6 +220,24 @@ window.cleanupPings = async () => {
   }
 };
 
+// Phase 2 #6: /seniors → /seniors_public + /seniors_private 분리
+// PUBLIC: 응급카드 익명 접근용 (의료정보 — 발견자 폰으로 응급 시 조회)
+// PRIVATE: 운영용 (상태·배터리·보호자 정보 — 인증된 보호자만)
+const SENIOR_PUBLIC_FIELDS = [
+  "id","name","age","gender","height","weight","region",
+  "blood","allergies","diseases","meds","doctor","emergencyContacts",
+  "advanceDirective","recentHistory","cognitiveBaseline","implants",
+  "assistiveDevices","qrToken"
+];
+const SENIOR_PRIVATE_FIELDS = ["status","battery","lastPing","note","guardian","phone"];
+
+function _splitSenior(s) {
+  const pub = {}, prv = {};
+  for (const k of SENIOR_PUBLIC_FIELDS) if (k in s) pub[k] = s[k];
+  for (const k of SENIOR_PRIVATE_FIELDS) if (k in s) prv[k] = s[k];
+  return { pub, prv };
+}
+
 window.seedToFirebase = async () => {
   const fb = window.CareSafeFB;
   if (!fb) return log("아직 초기화 안 됨", "⏳");
@@ -227,26 +245,35 @@ window.seedToFirebase = async () => {
 
   try {
     // 중요: localStorage가 옛 시드 구조를 캐시하고 있을 수 있음.
-    // 마이그레이션은 항상 app.js의 최신 시드 상수를 쓰도록 강제 리셋.
     localStorage.removeItem("caresafe:v1");
     log("로컬 캐시 초기화 → app.js 최신 시드 사용", "♻️");
+
     const state = window.CareSafe.load();
-    // 배열 → Firebase Map ({id: 객체}) 변환.
-    const seniorsMap = {};
-    state.seniors.forEach((s) => { seniorsMap[s.id] = s; });
+
+    // 시니어를 public/private로 분리해서 별도 path에 저장
+    const publicMap = {}, privateMap = {};
+    state.seniors.forEach((s) => {
+      const { pub, prv } = _splitSenior(s);
+      publicMap[s.id] = pub;
+      privateMap[s.id] = prv;
+    });
+
     const alertsMap = {};
     state.alerts.forEach((a) => { alertsMap[a.id] = a; });
-    // QR 토큰 → uid 인덱스. emergency.html?token=… 조회용.
     const qrIndex = {};
     state.seniors.forEach((s) => { if (s.qrToken) qrIndex[s.qrToken] = s.id; });
 
-    await fb.writePath("/seniors", seniorsMap);
+    await fb.writePath("/seniors_public", publicMap);
+    await fb.writePath("/seniors_private", privateMap);
     await fb.writePath("/alerts", alertsMap);
     await fb.writePath("/activeUid", state.activeUid || null);
     await fb.writePath("/qr_index", qrIndex);
+    // 구버전 /seniors 노드 정리 (이전 시드 잔여 데이터)
+    await fb.writePath("/seniors", null);
 
-    log(`시드 푸시 성공 · 시니어 ${state.seniors.length}명, 알림 ${state.alerts.length}건, QR ${Object.keys(qrIndex).length}개, activeUid=${state.activeUid}`, "🌱");
-    log("→ 콘솔에서 /seniors, /alerts, /activeUid, /qr_index 노드 확인 가능", "💡");
+    log(`시드 푸시 성공 · 공개 ${Object.keys(publicMap).length}명, 비공개 ${Object.keys(privateMap).length}명, 알림 ${state.alerts.length}건, QR ${Object.keys(qrIndex).length}개`, "🌱");
+    log("→ /seniors_public (익명 read OK), /seniors_private (인증 필수), /qr_index, /alerts", "💡");
+    log("→ 구 /seniors 노드 정리 완료", "🧹");
   } catch (e) {
     log(`시드 푸시 실패: ${e.message}`, "❌");
   }
@@ -255,9 +282,11 @@ window.seedToFirebase = async () => {
 window.wipeFirebase = async () => {
   const fb = window.CareSafeFB;
   if (!fb) return log("아직 초기화 안 됨", "⏳");
-  if (!confirm("Firebase의 모든 데이터(/seniors, /alerts, /activeUid, /qr_index, /ping)를 삭제합니다. 계속할까요?")) return;
+  if (!confirm("Firebase의 모든 데이터(/seniors_public, /seniors_private, /seniors, /alerts, /activeUid, /qr_index, /ping)를 삭제합니다. 계속할까요?")) return;
   try {
-    await fb.writePath("/seniors", null);
+    await fb.writePath("/seniors_public", null);
+    await fb.writePath("/seniors_private", null);
+    await fb.writePath("/seniors", null);  // 구버전 잔여 데이터
     await fb.writePath("/alerts", null);
     await fb.writePath("/activeUid", null);
     await fb.writePath("/qr_index", null);

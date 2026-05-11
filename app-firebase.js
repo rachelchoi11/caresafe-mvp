@@ -7,10 +7,12 @@
 // 활성화 조건: URL에 ?mode=firebase
 //   - 그 외엔 아무 일도 안 함 → app.js의 localStorage 어댑터가 그대로 동작.
 //
-// 데이터 모델 (v0.2 1단계): v0.1의 로컬 모양 그대로 옮김.
-//   /seniors/{uid}    — 시니어 객체 (id, name, age, status, ...)
-//   /alerts/{aid}     — 알림 객체 (id, uid, type, level, text, time)
-//   /activeUid        — 현재 보호자가 보고 있는 시니어 id
+// 데이터 모델 (v0.2 Phase 2 #6 — path 분리):
+//   /seniors_public/{uid}   — 응급카드용 의료정보 (익명 read 허용)
+//   /seniors_private/{uid}  — 운영용 상태·보호자 정보 (인증 필수)
+//   /alerts/{aid}           — 알림 객체
+//   /activeUid              — 현재 보호자가 보고 있는 시니어 id
+//   /qr_index/{token}: uid  — emergency.html?token=… 조회용
 
 import "./firebase.js";
 
@@ -62,10 +64,25 @@ function installFirebaseAdapter(FB) {
 
   // 내부 캐시 — Firebase 최신 스냅샷 미러.
   // load()가 sync로 동작해야 페이지 코드 호환되므로 캐시 유지.
+  // public + private 두 path를 시니어 id 기준으로 병합해서 cache.seniors 구성.
   const cache = { seniors: [], alerts: [], activeUid: null };
+  const _publicMap = {};   // {uid: publicFields}
+  const _privateMap = {};  // {uid: privateFields}
 
-  // 초기 3개 path 첫 스냅샷 도착 여부 추적 → 다 받은 뒤에만 ‘활성화’ 처리.
-  const initial = { seniors: false, alerts: false, activeUid: false };
+  function _rebuildSeniorsCache() {
+    const allUids = new Set([
+      ...Object.keys(_publicMap),
+      ...Object.keys(_privateMap),
+    ]);
+    cache.seniors = Array.from(allUids).map(uid => ({
+      ...(_publicMap[uid] || {}),
+      ...(_privateMap[uid] || {}),
+      id: uid,
+    }));
+  }
+
+  // 초기 path 첫 스냅샷 도착 여부 추적 → 다 받은 뒤에만 ‘활성화’ 처리.
+  const initial = { seniors_public: false, seniors_private: false, alerts: false, activeUid: false };
   let activated = false;
 
   function fireSubs(msg) {
@@ -79,20 +96,35 @@ function installFirebaseAdapter(FB) {
       fireSubs({ type: "sync", source: "firebase" });
       return;
     }
-    if (initial.seniors && initial.alerts && initial.activeUid) {
+    if (initial.seniors_public && initial.seniors_private && initial.alerts && initial.activeUid) {
       activated = true;
-      // Firebase 백엔드 메서드로 교체 (subscribe / fmtTime 등은 app.js 것 유지).
       Object.assign(window.CareSafe, fbAPI);
-      console.log("[CareSafe] Firebase 어댑터 활성화 완료. seniors=%d, alerts=%d",
+      console.log("[CareSafe] Firebase 어댑터 활성화 완료. seniors=%d (public path 분리), alerts=%d",
                   cache.seniors.length, cache.alerts.length);
       fireSubs({ type: "ready", source: "firebase" });
     }
   }
 
-  // 3개 path 실시간 구독.
-  FB.watchPath("/seniors", (data) => {
-    cache.seniors = data ? Object.values(data) : [];
-    initial.seniors = true;
+  // 4개 path 실시간 구독 (public/private 분리)
+  FB.watchPath("/seniors_public", (data) => {
+    if (data) {
+      for (const [uid, pub] of Object.entries(data)) _publicMap[uid] = pub;
+    } else {
+      for (const k of Object.keys(_publicMap)) delete _publicMap[k];
+    }
+    _rebuildSeniorsCache();
+    initial.seniors_public = true;
+    tryActivate();
+  });
+
+  FB.watchPath("/seniors_private", (data) => {
+    if (data) {
+      for (const [uid, prv] of Object.entries(data)) _privateMap[uid] = prv;
+    } else {
+      for (const k of Object.keys(_privateMap)) delete _privateMap[k];
+    }
+    _rebuildSeniorsCache();
+    initial.seniors_private = true;
     tryActivate();
   });
 
@@ -110,6 +142,25 @@ function installFirebaseAdapter(FB) {
     tryActivate();
   });
 
+  // Phase 2 #6: 시니어 필드 분류 — public(응급카드용) vs private(운영용)
+  const _PUBLIC_KEYS = new Set([
+    "id","name","age","gender","height","weight","region",
+    "blood","allergies","diseases","meds","doctor","emergencyContacts",
+    "advanceDirective","recentHistory","cognitiveBaseline","implants",
+    "assistiveDevices","qrToken"
+  ]);
+  const _PRIVATE_KEYS = new Set(["status","battery","lastPing","note","guardian","phone"]);
+
+  function _splitSeniorObj(s) {
+    const pub = {}, prv = {};
+    for (const [k, v] of Object.entries(s || {})) {
+      if (_PUBLIC_KEYS.has(k)) pub[k] = v;
+      else if (_PRIVATE_KEYS.has(k)) prv[k] = v;
+      // 알 수 없는 필드는 무시 (private 쪽에 떨어뜨릴 수도 있지만 보수적으로 drop)
+    }
+    return { pub, prv };
+  }
+
   // ----- API surface (window.CareSafe와 1:1 매칭) -----
   const fbAPI = {
     load() {
@@ -118,18 +169,24 @@ function installFirebaseAdapter(FB) {
     },
 
     async save(state) {
-      const seniorsMap = {};
-      (state.seniors || []).forEach((s) => { seniorsMap[s.id] = s; });
+      const publicMap = {}, privateMap = {};
+      (state.seniors || []).forEach((s) => {
+        const { pub, prv } = _splitSeniorObj(s);
+        publicMap[s.id] = pub;
+        privateMap[s.id] = prv;
+      });
       const alertsMap = {};
       (state.alerts || []).forEach((a) => { alertsMap[a.id] = a; });
-      await FB.writePath("/seniors", seniorsMap);
+      await FB.writePath("/seniors_public", publicMap);
+      await FB.writePath("/seniors_private", privateMap);
       await FB.writePath("/alerts", alertsMap);
       await FB.writePath("/activeUid", state.activeUid || null);
     },
 
     async reset() {
       if (!confirm("Firebase의 모든 데이터를 삭제합니다. 계속할까요?")) return;
-      await FB.writePath("/seniors", null);
+      await FB.writePath("/seniors_public", null);
+      await FB.writePath("/seniors_private", null);
       await FB.writePath("/alerts", null);
       await FB.writePath("/activeUid", null);
       location.reload();
@@ -142,21 +199,22 @@ function installFirebaseAdapter(FB) {
 
       const senior = cache.seniors.find((s) => s.id === full.uid);
       if (senior) {
-        await FB.writePath(`/seniors/${senior.id}/lastPing`, Date.now());
+        // status·lastPing 은 private 영역
+        await FB.writePath(`/seniors_private/${senior.id}/lastPing`, Date.now());
         const next =
           full.level === "danger" ? "danger"
           : full.level === "warn" && senior.status === "ok" ? "warn"
           : senior.status;
         if (next !== senior.status) {
-          await FB.writePath(`/seniors/${senior.id}/status`, next);
+          await FB.writePath(`/seniors_private/${senior.id}/status`, next);
         }
       }
       return full;
     },
 
     async setStatus(uid, status) {
-      await FB.writePath(`/seniors/${uid}/status`, status);
-      await FB.writePath(`/seniors/${uid}/lastPing`, Date.now());
+      await FB.writePath(`/seniors_private/${uid}/status`, status);
+      await FB.writePath(`/seniors_private/${uid}/lastPing`, Date.now());
     },
 
     async setActive(uid) {

@@ -60,6 +60,22 @@
   .alert-clickable:hover { background:#F8FAFC; }
   .alert-chevron { color:#94A3B8; margin-left:auto; font-size:13px; }
 
+  /* 무소식 타임아웃 배너 */
+  .no-signal-banner {
+    background:linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+    color:white; padding:14px 16px; border-radius:14px;
+    margin:0 0 12px 0; display:flex; align-items:center; gap:10px;
+    box-shadow:0 4px 12px rgba(245,158,11,0.25);
+  }
+  .no-signal-banner .icon { font-size:24px; }
+  .no-signal-banner .text { flex:1; font-size:13px; line-height:1.4; }
+  .no-signal-banner .text strong { display:block; font-size:14px; margin-bottom:2px; }
+  .no-signal-banner .cta {
+    background:white; color:#92400E; padding:8px 12px;
+    border-radius:8px; font-size:13px; font-weight:700; text-decoration:none;
+    white-space:nowrap;
+  }
+
   /* 안부 톡 톤 카드 */
   .msg-tone-card {
     padding:12px; border:2px solid #E2E8F0; border-radius:12px;
@@ -135,6 +151,16 @@
   </header>
 
   <section class="content">
+    <!-- 무소식 타임아웃 배너 (24h+ 신호 없음 시 자동 표시) -->
+    <div id="noSignalBanner" class="no-signal-banner" style="display:none">
+      <div class="icon">🌙</div>
+      <div class="text">
+        <strong id="noSignalTitle">오늘 부모님 신호가 없습니다</strong>
+        <span id="noSignalDetail">마지막 활동 신호로부터 시간 경과 — 안부 전화 권유</span>
+      </div>
+      <a class="cta" id="noSignalCta" href="#">📞 전화</a>
+    </div>
+
     <div class="status-hero" id="hero">
       <div class="who" id="heroWho">김영자 어머니 · 78세</div>
       <div class="state" id="heroState">정상</div>
@@ -315,6 +341,33 @@ function render() {
   renderChecklist(active.id);
   // 안부 톡 컨텍스트 뱃지 갱신
   updateMsgContextBadge();
+  // 무소식 타임아웃 배너
+  renderNoSignalBanner(active);
+}
+
+// ===== 무소식 타임아웃 배너 =====
+// 24시간+ 신호 없으면 자동 표시. Cloud Function 없이 클라이언트에서만 동작.
+// 한계: 보호자 폰에서 페이지 열려있을 때만 동작. v1.0에서 CF 푸시로 보완.
+function renderNoSignalBanner(senior) {
+  const banner = document.getElementById('noSignalBanner');
+  if (!senior || !banner) return;
+
+  const elapsed = Date.now() - (senior.lastPing || 0);
+  const HOURS_24 = 24 * 3600 * 1000;
+  if (elapsed < HOURS_24) {
+    banner.style.display = 'none';
+    return;
+  }
+  const hours = Math.floor(elapsed / 3600000);
+  document.getElementById('noSignalTitle').textContent =
+    `${senior.name} 어르신 신호 없음 (${hours}시간+)`;
+  document.getElementById('noSignalDetail').textContent =
+    '외출·여행이라면 정상이지만 확인 권유 — 안부 전화 또는 안부 톡';
+  const cta = document.getElementById('noSignalCta');
+  if (senior.phone) {
+    cta.href = 'tel:' + senior.phone.replace(/[^\d]/g, '');
+  }
+  banner.style.display = 'flex';
 }
 
 // ===== 대응가이드 모달 (AI 변형 매칭 + 정적 fallback) =====
