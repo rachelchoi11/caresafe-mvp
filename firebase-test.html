@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firebase 연결 테스트 · CareSafe v0.2</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .ft-grid { display:grid; gap:16px; }
+  .ft-out {
+    background:#0F172A; color:#E2E8F0; font-family:ui-monospace,Menlo,monospace;
+    font-size:13px; padding:14px; border-radius:10px; white-space:pre-wrap;
+    word-break:break-all; max-height:280px; overflow:auto; line-height:1.5;
+  }
+  .ft-row { display:flex; gap:8px; flex-wrap:wrap; }
+  .ft-row .btn { flex:1; min-width:160px; }
+  .ft-status { font-weight:600; }
+  .ft-status.ok { color:var(--ok); }
+  .ft-status.err { color:#EF4444; }
+</style>
+</head>
+<body class="page">
+<div class="mobile-shell" style="max-width:560px">
+  <header class="app-bar">
+    <div class="hstack">
+      <span class="brand-logo">🔥</span>
+      <div>
+        <h1>Firebase 연결 테스트</h1>
+        <div class="sub">v0.2 · 데이터 동기화 검증용</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="content ft-grid">
+    <div class="card">
+      <h2>1. 연결 상태</h2>
+      <div id="connStatus" class="ft-status">초기화 중…</div>
+      <p class="muted" id="connDetail" style="margin-top:6px"></p>
+    </div>
+
+    <div class="card">
+      <h2>2. 쓰기 테스트</h2>
+      <p class="muted" style="margin-bottom:10px">
+        버튼 누르면 <code>/ping/{타임스탬프}</code> 경로에 메시지를 씁니다.
+        Firebase 콘솔의 Realtime Database → 데이터 탭에서 실시간으로 보입니다.
+      </p>
+      <div class="ft-row">
+        <button class="btn block" onclick="testWrite()">📤 핑 쓰기</button>
+        <button class="btn block ghost" onclick="testRead()">📥 핑 읽기</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3. 실시간 구독 테스트</h2>
+      <p class="muted" style="margin-bottom:10px">
+        구독 시작 후 다른 브라우저 탭에서 ‘핑 쓰기’ 또는 Firebase 콘솔에서 수동 편집해보세요.
+        아래에 변경이 실시간으로 찍힙니다.
+      </p>
+      <div class="ft-row">
+        <button class="btn block" onclick="startWatch()">👀 구독 시작</button>
+        <button class="btn block ghost" onclick="stopWatch()">⏹ 구독 중지</button>
+        <button class="btn block ghost" onclick="cleanupPings()">🧹 핑 데이터 삭제</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>4. 로그</h2>
+      <div id="log" class="ft-out"></div>
+    </div>
+
+    <div class="card">
+      <h2>5. v0.1 시드 데이터 마이그레이션</h2>
+      <p class="muted" style="margin-bottom:10px">
+        app.js의 초기 시드(시니어 5명 + 알림 4개)를 한 번에 Firebase로 푸시합니다.
+        이후 simulator/guardian/admin 페이지를 <code>?mode=firebase</code>로 띄우면 같은 데이터가 보입니다.
+      </p>
+      <div class="ft-row">
+        <button class="btn block" onclick="seedToFirebase()">🌱 시드 → Firebase</button>
+        <button class="btn block ghost" onclick="wipeFirebase()">⚠️ Firebase 데이터 전체 삭제</button>
+      </div>
+      <p class="muted" style="margin-top:10px; font-size:12px">
+        시드는 여러 번 눌러도 안전(덮어쓰기). 삭제는 되돌릴 수 없음.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>6. 어댑터 모드 확인</h2>
+      <div class="ft-row">
+        <a class="btn block ghost" href="simulator.html?mode=firebase" target="_blank">📟 시뮬레이터 (Firebase)</a>
+        <a class="btn block ghost" href="guardian.html?mode=firebase" target="_blank">👨‍👩‍👧 보호자 (Firebase)</a>
+        <a class="btn block ghost" href="admin.html?mode=firebase" target="_blank">🏥 관리자 (Firebase)</a>
+      </div>
+      <p class="muted" style="margin-top:10px; font-size:12px">
+        새 탭에서 열림. 페이지 우상단에 <strong>🔥 Firebase</strong> 배지가 보이면 어댑터 활성화 성공.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>다음 단계</h2>
+      <p class="muted">
+        시드 마이그레이션 후 시뮬레이터에서 SOS 트리거 → 보호자 화면 새 탭에 실시간 반영 확인.
+        검증되면 신규 기능(QR 응급카드·대응가이드·체크리스트) 작업으로 진행.
+      </p>
+    </div>
+  </section>
+</div>
+
+<!-- app.js를 먼저 로드 → window.CareSafe의 seed 데이터를 마이그레이션에 사용 -->
+<script src="app.js"></script>
+<script type="module">
+import "./firebase.js";
+
+const logEl = document.getElementById("log");
+const statusEl = document.getElementById("connStatus");
+const detailEl = document.getElementById("connDetail");
+
+function log(line, kind="") {
+  const t = new Date().toLocaleTimeString("ko-KR");
+  logEl.textContent += `[${t}] ${kind ? kind + " " : ""}${line}\n`;
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// firebase.js가 import 끝나면 window.CareSafeFB 가 채워진다.
+// 비동기 로드라 한 박자 기다림.
+async function waitForFB(timeoutMs = 5000) {
+  const t0 = Date.now();
+  while (!window.CareSafeFB) {
+    if (Date.now() - t0 > timeoutMs) throw new Error("Firebase SDK 로드 타임아웃");
+    await new Promise(r => setTimeout(r, 50));
+  }
+  return window.CareSafeFB;
+}
+
+let unsubscribe = null;
+
+(async () => {
+  try {
+    const fb = await waitForFB();
+    statusEl.textContent = "✅ Firebase 초기화 성공";
+    statusEl.className = "ft-status ok";
+    detailEl.textContent = `프로젝트: ${fb.app.options.projectId} · DB: ${fb.app.options.databaseURL}`;
+    log("Firebase SDK 로드 완료", "✅");
+  } catch (e) {
+    statusEl.textContent = "❌ 초기화 실패";
+    statusEl.className = "ft-status err";
+    detailEl.textContent = e.message;
+    log(e.message, "❌");
+  }
+})();
+
+window.testWrite = async () => {
+  const fb = window.CareSafeFB;
+  if (!fb) return log("아직 초기화 안 됨", "⏳");
+  const ts = Date.now();
+  const payload = {
+    message: "안녕 Firebase",
+    from: "firebase-test.html",
+    ts,
+    serverTs: fb.serverTimestamp(),
+  };
+  try {
+    await fb.writePath(`/ping/${ts}`, payload);
+    log(`쓰기 성공 · /ping/${ts}`, "📤");
+  } catch (e) {
+    log(`쓰기 실패: ${e.message}`, "❌");
+  }
+};
+
+window.testRead = async () => {
+  const fb = window.CareSafeFB;
+  if (!fb) return log("아직 초기화 안 됨", "⏳");
+  try {
+    const data = await fb.readPath("/ping");
+    if (!data) {
+      log("/ping 경로 비어있음", "📭");
+    } else {
+      const count = Object.keys(data).length;
+      log(`읽기 성공 · /ping 에 ${count}개 항목`, "📥");
+      log(JSON.stringify(data, null, 2));
+    }
+  } catch (e) {
+    log(`읽기 실패: ${e.message}`, "❌");
+  }
+};
+
+window.startWatch = () => {
+  const fb = window.CareSafeFB;
+  if (!fb) return log("아직 초기화 안 됨", "⏳");
+  if (unsubscribe) {
+    log("이미 구독 중", "ℹ️");
+    return;
+  }
+  unsubscribe = fb.watchPath("/ping", (data) => {
+    const count = data ? Object.keys(data).length : 0;
+    log(`실시간 업데이트 · ${count}개 항목`, "🔔");
+  });
+  log("/ping 구독 시작", "👀");
+};
+
+window.stopWatch = () => {
+  if (!unsubscribe) {
+    log("구독 중이 아님", "ℹ️");
+    return;
+  }
+  unsubscribe();
+  unsubscribe = null;
+  log("구독 중지", "⏹");
+};
+
+window.cleanupPings = async () => {
+  const fb = window.CareSafeFB;
+  if (!fb) return log("아직 초기화 안 됨", "⏳");
+  if (!confirm("/ping 전체를 삭제합니다. 계속할까요?")) return;
+  try {
+    await fb.writePath("/ping", null);
+    log("/ping 전체 삭제 완료", "🧹");
+  } catch (e) {
+    log(`삭제 실패: ${e.message}`, "❌");
+  }
+};
+
+window.seedToFirebase = async () => {
+  const fb = window.CareSafeFB;
+  if (!fb) return log("아직 초기화 안 됨", "⏳");
+  if (!window.CareSafe) return log("app.js (window.CareSafe) 로드 안 됨", "❌");
+
+  try {
+    // 중요: localStorage가 옛 시드 구조를 캐시하고 있을 수 있음.
+    // 마이그레이션은 항상 app.js의 최신 시드 상수를 쓰도록 강제 리셋.
+    localStorage.removeItem("caresafe:v1");
+    log("로컬 캐시 초기화 → app.js 최신 시드 사용", "♻️");
+    const state = window.CareSafe.load();
+    // 배열 → Firebase Map ({id: 객체}) 변환.
+    const seniorsMap = {};
+    state.seniors.forEach((s) => { seniorsMap[s.id] = s; });
+    const alertsMap = {};
+    state.alerts.forEach((a) => { alertsMap[a.id] = a; });
+    // QR 토큰 → uid 인덱스. emergency.html?token=… 조회용.
+    const qrIndex = {};
+    state.seniors.forEach((s) => { if (s.qrToken) qrIndex[s.qrToken] = s.id; });
+
+    await fb.writePath("/seniors", seniorsMap);
+    await fb.writePath("/alerts", alertsMap);
+    await fb.writePath("/activeUid", state.activeUid || null);
+    await fb.writePath("/qr_index", qrIndex);
+
+    log(`시드 푸시 성공 · 시니어 ${state.seniors.length}명, 알림 ${state.alerts.length}건, QR ${Object.keys(qrIndex).length}개, activeUid=${state.activeUid}`, "🌱");
+    log("→ 콘솔에서 /seniors, /alerts, /activeUid, /qr_index 노드 확인 가능", "💡");
+  } catch (e) {
+    log(`시드 푸시 실패: ${e.message}`, "❌");
+  }
+};
+
+window.wipeFirebase = async () => {
+  const fb = window.CareSafeFB;
+  if (!fb) return log("아직 초기화 안 됨", "⏳");
+  if (!confirm("Firebase의 모든 데이터(/seniors, /alerts, /activeUid, /qr_index, /ping)를 삭제합니다. 계속할까요?")) return;
+  try {
+    await fb.writePath("/seniors", null);
+    await fb.writePath("/alerts", null);
+    await fb.writePath("/activeUid", null);
+    await fb.writePath("/qr_index", null);
+    await fb.writePath("/ping", null);
+    log("Firebase 전체 데이터 삭제 완료", "🧹");
+  } catch (e) {
+    log(`삭제 실패: ${e.message}`, "❌");
+  }
+};
+</script>
+</body>
+</html>

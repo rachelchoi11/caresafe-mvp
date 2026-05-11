@@ -54,8 +54,25 @@
     <div class="card">
       <h2>긴급 연락</h2>
       <div class="stack">
-        <button class="btn block" onclick="alert('데모: 119 자동 연결 및 위치 전송')">🚨 119 긴급 신고</button>
-        <button class="btn ghost block" onclick="alert('데모: 담당 간호사 전화 연결')">☎️ 병원 퇴원지원팀 전화</button>
+        <a class="btn block" href="tel:119" style="text-decoration:none; display:flex; align-items:center; justify-content:center">🚨 119 전화 걸기</a>
+        <button class="btn ghost block" id="callDoctor">☎️ 주치의 연결</button>
+      </div>
+    </div>
+
+    <div class="card" id="emergencyCard">
+      <div class="title-row">
+        <h2>응급정보 카드 (QR)</h2>
+        <span class="muted" id="emergencyTag">미발급</span>
+      </div>
+      <div id="emergencyPreview" class="stack" style="font-size:14px"></div>
+      <div class="stack" style="margin-top:12px">
+        <button class="btn block" id="showQrBtn">🔳 QR 카드 보기</button>
+        <a class="btn ghost block" id="openCardLink" target="_blank" rel="noopener" style="text-decoration:none; display:flex; align-items:center; justify-content:center">↗ 응급카드 페이지 열기</a>
+      </div>
+      <div id="qrBox" style="display:none; text-align:center; padding:16px; background:#F8FAFC; border-radius:10px; margin-top:12px">
+        <div id="qrcode" style="display:inline-block; padding:12px; background:white; border-radius:8px"></div>
+        <div class="muted" style="margin-top:10px; font-size:12px; word-break:break-all" id="qrUrl"></div>
+        <button class="btn ghost" onclick="window.print()" style="margin-top:10px">🖨 인쇄</button>
       </div>
     </div>
   </section>
@@ -69,6 +86,8 @@
 </div>
 
 <script src="app.js"></script>
+<script type="module" src="app-firebase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
 const ICONS = { sos: '🆘', fall: '⚠️', battery: '🔋', medication: '💊', activity: '🟢', inactivity: '⏸️' };
 const LEVEL_TEXT = { ok: '정상', warn: '주의', danger: '위급' };
@@ -114,7 +133,79 @@ function render() {
       </div>
       <span class="pill ${s.status}">${LEVEL_TEXT[s.status]}</span>
     </li>`).join('');
+
+  // 응급정보 카드 미리보기 + QR 링크
+  renderEmergencyCard(active);
 }
+
+function renderEmergencyCard(senior) {
+  const preview = document.getElementById('emergencyPreview');
+  const tag = document.getElementById('emergencyTag');
+  const link = document.getElementById('openCardLink');
+  const qrBox = document.getElementById('qrBox');
+
+  const c1 = (senior.emergencyContacts || []).sort((a, b) => (a.priority || 99) - (b.priority || 99))[0];
+  const medsCount = (senior.meds || []).length;
+  const allergyText = (senior.allergies && senior.allergies.length) ? senior.allergies.join(', ') : '없음';
+
+  preview.innerHTML = `
+    <div class="muted" style="display:flex; justify-content:space-between"><span>혈액형</span><strong style="color:#0F172A">${senior.blood || '—'}</strong></div>
+    <div class="muted" style="display:flex; justify-content:space-between"><span>알레르기</span><strong style="color:${senior.allergies?.length ? '#DC2626' : '#0F172A'}">${allergyText}</strong></div>
+    <div class="muted" style="display:flex; justify-content:space-between"><span>복용약</span><strong style="color:#0F172A">${medsCount}종</strong></div>
+    <div class="muted" style="display:flex; justify-content:space-between"><span>1순위 연락처</span><strong style="color:#0F172A">${c1 ? c1.name : '—'}</strong></div>
+  `;
+
+  if (senior.qrToken) {
+    tag.textContent = '발급됨';
+    tag.style.color = 'var(--ok)';
+    const url = new URL('emergency.html', location.href);
+    url.searchParams.set('token', senior.qrToken);
+    link.href = url.href;
+    document.getElementById('qrUrl').textContent = url.href;
+    document.getElementById('showQrBtn').dataset.url = url.href;
+    // QR 박스가 열려 있으면 새 시니어로 다시 생성
+    if (qrBox.style.display !== 'none') {
+      drawQr(url.href);
+    }
+  } else {
+    tag.textContent = '미발급';
+    tag.style.color = 'var(--muted)';
+    link.removeAttribute('href');
+    qrBox.style.display = 'none';
+  }
+}
+
+function drawQr(text) {
+  const target = document.getElementById('qrcode');
+  target.innerHTML = '';
+  new QRCode(target, {
+    text,
+    width: 192, height: 192,
+    correctLevel: QRCode.CorrectLevel.H,
+  });
+}
+
+document.getElementById('showQrBtn').addEventListener('click', () => {
+  const url = document.getElementById('showQrBtn').dataset.url;
+  if (!url) return alert('QR 토큰이 등록되지 않은 시니어입니다.');
+  const box = document.getElementById('qrBox');
+  if (box.style.display === 'none') {
+    box.style.display = 'block';
+    drawQr(url);
+  } else {
+    box.style.display = 'none';
+  }
+});
+
+document.getElementById('callDoctor').addEventListener('click', () => {
+  const state = CareSafe.load();
+  const s = state.seniors.find(x => x.id === state.activeUid);
+  if (s?.doctor?.phone) {
+    location.href = 'tel:' + s.doctor.phone;
+  } else {
+    alert('주치의 연락처가 등록되지 않았습니다.');
+  }
+});
 
 CareSafe.subscribe((msg) => {
   if (msg.type === 'alert' && msg.payload) {
