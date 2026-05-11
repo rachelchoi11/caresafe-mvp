@@ -667,7 +667,10 @@ function renderEmergencyCard(senior) {
 
   const c1 = (senior.emergencyContacts || []).sort((a, b) => (a.priority || 99) - (b.priority || 99))[0];
   const medsCount = (senior.meds || []).length;
-  const allergyText = (senior.allergies && senior.allergies.length) ? senior.allergies.join(', ') : '없음';
+  // Phase 2 #2 이후: allergies는 [{agent, reaction, severity}] 객체 배열. 구버전 호환.
+  const allergyText = (senior.allergies && senior.allergies.length)
+    ? senior.allergies.map(a => typeof a === 'string' ? a : (a.agent || '')).filter(Boolean).join(', ')
+    : '없음';
 
   preview.innerHTML = `
     <div class="muted" style="display:flex; justify-content:space-between"><span>혈액형</span><strong style="color:#0F172A">${senior.blood || '—'}</strong></div>
