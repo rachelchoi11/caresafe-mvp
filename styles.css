@@ -112,6 +112,26 @@ body {
   }
 }
 
+/* ──────────────────────────────────────────
+   Icon utility (Lucide-style line icons)
+   ────────────────────────────────────────── */
+.ico {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+.ico-sm { width: 16px; height: 16px; }
+.ico-lg { width: 24px; height: 24px; }
+.ico-xl { width: 32px; height: 32px; }
+.ico-2xl { width: 48px; height: 48px; stroke-width: 1.6; }
+
 a { color: inherit; text-decoration: none; }
 
 /* ---------- layout ---------- */

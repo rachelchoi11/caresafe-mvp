@@ -630,7 +630,7 @@
       </div>
     </div>
     <div class="right">
-      <a href="tel:119" class="header-119" aria-label="119 응급 전화">🚨 119</a>
+      <a href="tel:119" class="header-119" aria-label="119 응급 전화"><i data-lucide="phone-call" class="ico ico-sm"></i> 119</a>
       <span class="pill primary"><span class="dot pulse-dot"></span> 실시간</span>
     </div>
   </header>
@@ -638,18 +638,18 @@
   <section class="content">
     <!-- 무소식 타임아웃 배너 (24h+ 신호 없음 시 자동 표시) -->
     <div id="noSignalBanner" class="no-signal-banner" style="display:none">
-      <div class="icon">🌙</div>
+      <div class="icon"><i data-lucide="moon" class="ico ico-lg"></i></div>
       <div class="text">
         <strong id="noSignalTitle">오늘 신호가 도착하지 않았습니다</strong>
         <span id="noSignalDetail">마지막 활동 신호로부터 시간 경과 — 안부 전화 권유</span>
       </div>
-      <a class="cta" id="noSignalCta" href="#">📞 전화</a>
+      <a class="cta" id="noSignalCta" href="#"><i data-lucide="phone" class="ico ico-sm"></i> 전화</a>
     </div>
 
     <!-- 빈 상태 — 돌봄대상자 0명일 때 (버그 #2 · 환영 페이지 #4) -->
     <div id="emptyHost" style="display:none">
       <div class="welcome-card">
-        <div class="ic">🤝</div>
+        <div class="ic"><i data-lucide="heart-handshake" class="ico ico-2xl" style="color:var(--primary)"></i></div>
         <h2>CareSafe에 오신 걸 환영합니다</h2>
         <p>
           가족·이웃 등 돌봄이 필요한 분을 등록하고,
@@ -660,7 +660,7 @@
           <div class="step"><span class="num">2</span> 응급 연락처·복약 정보 입력</div>
           <div class="step"><span class="num">3</span> QR/NFC 카드 발급 + 푸시 알림 활성화</div>
         </div>
-        <button class="btn block welcome-cta" id="welcomeAddBtn">+ 돌봄대상자 추가하기</button>
+        <button class="btn block welcome-cta" id="welcomeAddBtn"><i data-lucide="user-plus" class="ico ico-sm" style="margin-right:6px"></i>돌봄대상자 추가하기</button>
         <p class="hint" style="text-align:center;font-size:12px;color:#94A3B8;margin-top:14px">
           이용약관·개인정보 처리방침 동의 후 본 기능을 이용할 수 있습니다.<br>
           <a href="terms.html" target="_blank" style="color:#0F766E">이용약관</a> ·
@@ -698,51 +698,51 @@
         <span class="muted">여러 명 지원</span>
       </div>
       <ul class="list" id="seniorSwitch"></ul>
-      <button class="btn ghost block" onclick="openSeniorForm(null)" style="margin-top:10px">➕ 돌봄대상자 추가</button>
+      <button class="btn ghost block" onclick="openSeniorForm(null)" style="margin-top:10px"><i data-lucide="user-plus" class="ico ico-sm"></i> 돌봄대상자 추가</button>
     </div>
 
     <details class="card-collapse">
-      <summary>📞 긴급 연락 · 주치의</summary>
+      <summary><i data-lucide="phone" class="ico ico-sm" style="margin-right:8px;color:var(--primary)"></i>긴급 연락 · 주치의</summary>
       <div class="cc-body">
         <div class="stack">
-          <a class="btn block" href="tel:119" style="text-decoration:none; display:flex; align-items:center; justify-content:center">🚨 119 전화 걸기</a>
-          <button class="btn ghost block" id="callDoctor">☎️ 주치의 연결</button>
+          <a class="btn block" href="tel:119" style="text-decoration:none; display:flex; align-items:center; justify-content:center"><i data-lucide="phone-call" class="ico ico-sm"></i> 119 전화 걸기</a>
+          <button class="btn ghost block" id="callDoctor"><i data-lucide="phone" class="ico ico-sm"></i> 주치의 연결</button>
         </div>
       </div>
     </details>
 
     <details class="card-collapse">
-      <summary>💬 안부 메시지 보내기 <span class="sum-tag" id="msgContextBadge">상태 확인 중…</span></summary>
+      <summary><i data-lucide="message-circle" class="ico ico-sm" style="margin-right:8px;color:var(--primary)"></i>안부 메시지 보내기 <span class="sum-tag" id="msgContextBadge">상태 확인 중…</span></summary>
       <div class="cc-body">
         <p class="muted" style="font-size:13px; margin-bottom:10px">
           AI가 돌봄대상자 최근 상태에 맞는 메시지 3개를 추천. 편집해서 카톡·문자로 직접 전송.
         </p>
-        <button class="btn block" id="openMsgBtn">💬 안부 톡 작성</button>
+        <button class="btn block" id="openMsgBtn"><i data-lucide="message-circle" class="ico ico-sm"></i> 안부 톡 작성</button>
       </div>
     </details>
 
     <details class="card-collapse" id="emergencyCard">
-      <summary>🆔 응급정보 카드 (QR/NFC) <span class="sum-tag" id="emergencyTag">미발급</span></summary>
+      <summary><i data-lucide="badge-alert" class="ico ico-sm" style="margin-right:8px;color:var(--primary)"></i>응급정보 카드 (QR/NFC) <span class="sum-tag" id="emergencyTag">미발급</span></summary>
       <div class="cc-body">
         <div id="emergencyPreview" class="stack" style="font-size:14px"></div>
         <div class="stack" style="margin-top:12px">
-          <button class="btn block" id="showQrBtn">🔳 QR 카드 보기</button>
-          <button class="btn block" id="nfcWriteBtn" style="background:#0F766E">📱 NFC 카드에 굽기 (Android Chrome)</button>
-          <a class="btn ghost block" id="openCardLink" target="_blank" rel="noopener" style="text-decoration:none; display:flex; align-items:center; justify-content:center">↗ 응급카드 페이지 열기</a>
-          <button class="btn ghost block" onclick="openSeniorForm(CareSafe.load().activeUid)">✏️ 응급정보 편집</button>
-          <button class="btn ghost block" id="revokeQrBtn" style="color:#991B1B">🔄 QR 토큰 재발급 (분실·노출 시)</button>
+          <button class="btn block" id="showQrBtn"><i data-lucide="qr-code" class="ico ico-sm"></i> QR 카드 보기</button>
+          <button class="btn block" id="nfcWriteBtn" style="background:#0F766E"><i data-lucide="smartphone-nfc" class="ico ico-sm"></i> NFC 카드에 굽기 (Android Chrome)</button>
+          <a class="btn ghost block" id="openCardLink" target="_blank" rel="noopener" style="text-decoration:none; display:flex; align-items:center; justify-content:center"><i data-lucide="external-link" class="ico ico-sm"></i> 응급카드 페이지 열기</a>
+          <button class="btn ghost block" onclick="openSeniorForm(CareSafe.load().activeUid)"><i data-lucide="edit-3" class="ico ico-sm"></i> 응급정보 편집</button>
+          <button class="btn ghost block" id="revokeQrBtn" style="color:#991B1B"><i data-lucide="refresh-cw" class="ico ico-sm"></i> QR 토큰 재발급 (분실·노출 시)</button>
         </div>
         <div id="nfcStatus" style="display:none; margin-top:8px; padding:10px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; font-size:12px; color:#166534"></div>
         <div id="qrBox" style="display:none; text-align:center; padding:16px; background:#F8FAFC; border-radius:10px; margin-top:12px">
           <div id="qrcode" style="display:inline-block; padding:12px; background:white; border-radius:8px"></div>
           <div class="muted" style="margin-top:10px; font-size:12px; word-break:break-all" id="qrUrl"></div>
-          <button class="btn ghost" onclick="window.print()" style="margin-top:10px">🖨 인쇄</button>
+          <button class="btn ghost" onclick="window.print()" style="margin-top:10px"><i data-lucide="printer" class="ico ico-sm"></i> 인쇄</button>
         </div>
       </div>
     </details>
 
     <details class="card-collapse">
-      <summary>💊 오늘 복약 현황 <span class="sum-tag" id="medsToday">— / —</span></summary>
+      <summary><i data-lucide="pill" class="ico ico-sm" style="margin-right:8px;color:var(--primary)"></i>오늘 복약 현황 <span class="sum-tag" id="medsToday">— / —</span></summary>
       <div class="cc-body">
         <div style="background:#F0F9FF; border:1px solid #BAE6FD; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.5; color:#075985; margin-bottom:10px">
           💡 돌봄대상자가 직접 <strong>먹었어요</strong> 버튼을 눌러 확인합니다.
@@ -753,7 +753,7 @@
     </details>
 
     <details class="card-collapse">
-      <summary>✅ 이번 주 안전 체크 <span class="sum-tag" id="checklistCount">0 / 0</span></summary>
+      <summary><i data-lucide="clipboard-check" class="ico ico-sm" style="margin-right:8px;color:var(--primary)"></i>이번 주 안전 체크 <span class="sum-tag" id="checklistCount">0 / 0</span></summary>
       <div class="cc-body">
         <div class="checklist-progress"><div id="checklistBar" style="width:0%"></div></div>
         <div id="checklistBody"></div>
@@ -766,7 +766,7 @@
     <div class="modal-content sf-content">
       <div class="sf-header">
         <h2 id="sfTitle">돌봄대상자 등록</h2>
-        <button class="modal-close" onclick="closeSeniorForm()" style="position:static">✕</button>
+        <button class="modal-close" onclick="closeSeniorForm()" style="position:static"><i data-lucide="x" class="ico ico-sm"></i></button>
       </div>
       <div class="sf-body">
         <div id="sfError" class="sf-error"></div>
@@ -1000,7 +1000,7 @@
   <!-- 안부 톡 모달 -->
   <div id="msgModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeMsgModal()">
     <div class="modal-content">
-      <button class="modal-close" onclick="closeMsgModal()">✕</button>
+      <button class="modal-close" onclick="closeMsgModal()"><i data-lucide="x" class="ico ico-sm"></i></button>
       <span class="msg-context-badge" id="msgCtxBadge">상태 분석 중…</span>
       <h2 id="msgModalTitle">안부 메시지 보내기</h2>
       <p class="intro" id="msgIntro">아래 톤 중 하나 선택하거나 직접 편집하세요.</p>
@@ -1010,8 +1010,8 @@
         <textarea id="msgEditArea" class="msg-edit-area" placeholder="톤을 선택하거나 직접 입력하세요"></textarea>
       </div>
       <div style="display:flex; gap:8px; margin-top:14px">
-        <button class="btn block" id="msgSendSms" style="flex:1">💬 문자로 보내기</button>
-        <button class="btn block ghost" id="msgCopyKakao" style="flex:1">📋 카톡용 복사</button>
+        <button class="btn block" id="msgSendSms" style="flex:1"><i data-lucide="message-square" class="ico ico-sm"></i> 문자로 보내기</button>
+        <button class="btn block ghost" id="msgCopyKakao" style="flex:1"><i data-lucide="clipboard-copy" class="ico ico-sm"></i> 카톡용 복사</button>
       </div>
       <p class="muted" style="font-size:11px; margin-top:10px; line-height:1.5">
         문자: 폰의 기본 문자 앱이 열림 (수신자·메시지 자동 채움). 카톡: 텍스트가 클립보드에 복사됨 → 카톡에서 붙여넣기.
@@ -1022,7 +1022,7 @@
   <!-- 대응가이드 모달 -->
   <div id="guideModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeGuide()">
     <div class="modal-content">
-      <button class="modal-close" onclick="closeGuide()">✕</button>
+      <button class="modal-close" onclick="closeGuide()"><i data-lucide="x" class="ico ico-sm"></i></button>
       <span id="guideSeverity" class="severity-pill"></span>
       <h2 id="guideTitle"></h2>
       <p id="guideIntro" class="intro"></p>
@@ -1035,10 +1035,10 @@
   </div>
 
   <nav class="tabs">
-    <a href="guardian.html" class="active"><span class="ic">🏠</span>홈</a>
-    <a href="alerts.html"><span class="ic">🔔</span>알림</a>
-    <a href="help.html"><span class="ic">📖</span>도움말</a>
-    <a href="settings.html"><span class="ic">⚙️</span>설정</a>
+    <a href="guardian.html" class="active"><i data-lucide="home" class="ico"></i>홈</a>
+    <a href="alerts.html"><i data-lucide="bell" class="ico"></i>알림</a>
+    <a href="help.html"><i data-lucide="book-open" class="ico"></i>도움말</a>
+    <a href="settings.html"><i data-lucide="settings" class="ico"></i>설정</a>
   </nav>
 </div>
 
@@ -1059,9 +1059,28 @@
 <script src="data/datasets/assistive.js"></script>
 <script src="data/meds-runtime.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
-const ICONS = { sos: '🆘', fall: '⚠️', battery: '🔋', medication: '💊', activity: '🟢', inactivity: '⏸️' };
+// 알림 타입별 Lucide 아이콘
+const ICONS = {
+  sos:        '<i data-lucide="siren" class="ico"></i>',
+  fall:       '<i data-lucide="alert-triangle" class="ico"></i>',
+  battery:    '<i data-lucide="battery-low" class="ico"></i>',
+  medication: '<i data-lucide="pill" class="ico"></i>',
+  activity:   '<i data-lucide="activity" class="ico"></i>',
+  inactivity: '<i data-lucide="moon" class="ico"></i>',
+};
+const ICON_DEFAULT = '<i data-lucide="bell" class="ico"></i>';
 const LEVEL_TEXT = { ok: '정상', warn: '주의', danger: '위급' };
+
+// 동적 렌더 후 Lucide 아이콘 생성 (debounce — 매 프레임 1회)
+let _lucideTimer = null;
+function _renderLucide() {
+  if (_lucideTimer) cancelAnimationFrame(_lucideTimer);
+  _lucideTimer = requestAnimationFrame(() => {
+    if (window.lucide) window.lucide.createIcons();
+  });
+}
 // Codex P2 #6: XSS escape — 모든 사용자 입력 데이터에 적용. CareSafe.esc 사용.
 const E = window.CareSafe?.esc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
 
@@ -1116,7 +1135,7 @@ function render() {
       : '';
     // a.level은 enum — pill class에 안전. a.id는 임의 문자열 가능 — escAttr 필요.
     const safeLevel = ['ok','warn','danger'].includes(a.level) ? a.level : 'ok';
-    const safeType = ICONS[a.type] || '🔔';
+    const safeType = ICONS[a.type] || ICON_DEFAULT;
     const safePri = (window.CareSafe?.derivePriority || (x => x.priority || 'P3'))(a);
     return `
     <li class="list-item alert-clickable ${safeLevel}" data-alert-id="${E(a.id)}">
@@ -1139,13 +1158,13 @@ function render() {
     const relText = s.relationship ? E(s.relationship) : '관계 미설정';
     return `
     <li class="list-item ${isActive ? 'ok' : ''}" style="cursor:pointer" data-uid="${E(s.id)}" title="${isActive ? '다시 누르면 편집' : '눌러서 선택'}">
-      <div class="icon">${isActive ? '✅' : '👤'}</div>
+      <div class="icon">${isActive ? '<i data-lucide="check-circle-2" class="ico"></i>' : '<i data-lucide="user" class="ico"></i>'}</div>
       <div class="body">
         <div class="t">${E(s.name)} <span class="muted" style="font-weight:500">· ${relText} · ${E(s.age)}세</span></div>
         <div class="s">${E(s.region || '지역 미설정')}</div>
       </div>
       <span class="pill ${safeStatus}">${LEVEL_TEXT[safeStatus]}</span>
-      ${isActive ? '<span style="font-size:11px;color:#94A3B8;margin-left:8px">✏️</span>' : ''}
+      ${isActive ? '<i data-lucide="edit-3" class="ico ico-sm" style="color:var(--text-muted);margin-left:8px"></i>' : ''}
     </li>`;
   }).join('');
 
@@ -1159,6 +1178,8 @@ function render() {
   renderNoSignalBanner(active);
   // 오늘 복약 현황
   renderMedsStatus(active);
+  // Lucide 아이콘 (모든 동적 렌더 후 한 번)
+  _renderLucide();
 }
 
 // ===== 오늘 복약 현황 (보호자 측) =====
@@ -1197,11 +1218,12 @@ function renderMedsStatus(senior) {
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #F1F5F9;font-size:14px">
         <div>
           <div style="font-weight:600;color:#0F172A">${E(s.medName)} <span style="color:#64748B;font-weight:500">${E(s.medDose || '')}</span></div>
-          <div style="color:#94A3B8;font-size:12px">⏰ ${E(s.time)}</div>
+          <div style="color:#94A3B8;font-size:12px"><i data-lucide="clock" class="ico ico-sm"></i> ${E(s.time)}</div>
         </div>
         <span style="color:${stateColor};font-weight:700;font-size:12px">${stateLabel}</span>
       </div>`;
   }).join('');
+  _renderLucide();
 }
 
 // ===== 2시간+ 미체크 자동 알림 (중복 방지) =====
@@ -1435,7 +1457,7 @@ function _renderGuideModal(guide) {
   } else {
     pitfallBox.style.display = 'none';
   }
-  document.getElementById('guideModal').style.display = 'flex';
+  document.getElementById('guideModal').style.display = 'flex'; _renderLucide();
 }
 
 function closeGuide() {
@@ -1503,7 +1525,7 @@ function openMsgModal() {
   window.__msgVariants = variants;
   window.__msgSenior = senior;
 
-  document.getElementById('msgModal').style.display = 'flex';
+  document.getElementById('msgModal').style.display = 'flex'; _renderLucide();
 }
 
 function selectMsgTone(idx) {
@@ -1683,7 +1705,7 @@ function openSeniorForm(uid) {
     docHospInput.addEventListener('input', updateHospTag);
   }
 
-  document.getElementById('seniorFormModal').style.display = 'flex';
+  document.getElementById('seniorFormModal').style.display = 'flex'; _renderLucide();
   window.scrollTo(0, 0);
 }
 
@@ -1706,7 +1728,7 @@ function sfAddContact(data = {}) {
     if (m) { _name = m[1].trim(); _relation = m[2].trim(); }
   }
   div.innerHTML = `
-    <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <button type="button" class="sf-remove" onclick="this.parentElement.remove()" aria-label="삭제"><i data-lucide="x" class="ico ico-sm"></i></button>
     <div class="sf-row">
       <div class="sf-field"><label>이름</label><input class="sf-c-name" value="${_sfEsc(_name)}" placeholder="예: 김민지"></div>
       <div class="sf-field"><label>관계</label><input class="sf-c-relation" value="${_sfEsc(_relation)}" placeholder="예: 딸 · 며느리 · 친구" list="sfContactRelationList"></div>
@@ -1739,7 +1761,7 @@ function sfAddNote(data = {}) {
   const d = new Date(ts);
   const dateLabel = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   div.innerHTML = `
-    <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <button type="button" class="sf-remove" onclick="this.parentElement.remove()" aria-label="삭제"><i data-lucide="x" class="ico ico-sm"></i></button>
     <div class="sf-field">
       <label style="display:flex; justify-content:space-between; align-items:center">
         <span>메모</span>
@@ -1757,7 +1779,7 @@ function sfAddAllergy(data = {}) {
   div.className = 'sf-item-card';
   div.dataset.kind = 'allergy';
   div.innerHTML = `
-    <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <button type="button" class="sf-remove" onclick="this.parentElement.remove()" aria-label="삭제"><i data-lucide="x" class="ico ico-sm"></i></button>
     <div class="sf-field">
       <label>알레르겐 (원인) — 입력하면 공식 데이터셋에서 검색</label>
       <input class="sf-a-agent" value="${_sfEsc(data.agent)}" placeholder="예: 페니실린, 조개류, 땅콩"
@@ -1839,7 +1861,7 @@ function sfAddMed(data = {}) {
   // 알림 활성화 — 신규 항목 디폴트 ON. 기존 데이터 호환.
   const notifyOn = data.notify !== false;
   div.innerHTML = `
-    <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <button type="button" class="sf-remove" onclick="this.parentElement.remove()" aria-label="삭제"><i data-lucide="x" class="ico ico-sm"></i></button>
     <div class="sf-field">
       <label>약물명 * — 입력하면 공식 데이터셋에서 검색</label>
       <input class="sf-m-name" value="${_sfEsc(data.name)}" placeholder="예: 와파린, 메트포민, 자누비아"
@@ -1974,7 +1996,7 @@ function sfAddDisease(data = '') {
   // 옛 데이터 호환: string 또는 객체
   const obj = typeof data === 'string' ? { name: data } : (data || {});
   div.innerHTML = `
-    <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <button type="button" class="sf-remove" onclick="this.parentElement.remove()" aria-label="삭제"><i data-lucide="x" class="ico ico-sm"></i></button>
     <div class="sf-field">
       <label>진단명 — 입력하면 KCD-8 데이터셋에서 검색</label>
       <input class="sf-d-name" value="${_sfEsc(obj.name)}" placeholder="예: 고혈압, 당뇨, 치매, 골다공증"
@@ -2028,7 +2050,7 @@ function sfAddHistory(data = {}) {
   div.className = 'sf-item-card';
   div.dataset.kind = 'history';
   div.innerHTML = `
-    <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <button type="button" class="sf-remove" onclick="this.parentElement.remove()" aria-label="삭제"><i data-lucide="x" class="ico ico-sm"></i></button>
     <div class="sf-row">
       <div class="sf-field"><label>날짜</label><input class="sf-h-date" type="date" value="${_sfEsc(data.date)}"></div>
       <div class="sf-field"><label>유형</label><select class="sf-h-type">
@@ -2053,7 +2075,7 @@ function sfAddAssistive(data) {
   // 옛 데이터 호환: 단순 string 가능
   const obj = typeof data === 'string' ? { name: data } : (data || {});
   div.innerHTML = `
-    <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <button type="button" class="sf-remove" onclick="this.parentElement.remove()" aria-label="삭제"><i data-lucide="x" class="ico ico-sm"></i></button>
     <div class="sf-field">
       <label>보조기기명 — 입력하면 데이터셋에서 검색</label>
       <input class="sf-as-name" value="${_sfEsc(obj.name)}" placeholder="예: 보청기, 안경, 보행기"
@@ -2099,7 +2121,7 @@ function sfAddImplant(data = {}) {
   div.className = 'sf-item-card';
   div.dataset.kind = 'implant';
   div.innerHTML = `
-    <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <button type="button" class="sf-remove" onclick="this.parentElement.remove()" aria-label="삭제"><i data-lucide="x" class="ico ico-sm"></i></button>
     <div class="sf-field">
       <label>의료기기명 — 입력하면 식약처 데이터셋에서 검색</label>
       <input class="sf-im-desc" value="${_sfEsc(data.description)}" placeholder="예: 인공 고관절, 페이스메이커, 스텐트"
