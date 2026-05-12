@@ -264,7 +264,10 @@ function render(senior) {
       </div>
     </li>`).join('');
 
-  const assistive = (senior.assistiveDevices || []).join(' · ') || '없음';
+  // 호환: 옛 string 배열 또는 새 {name} 객체 배열 모두 지원
+  const assistive = (senior.assistiveDevices || [])
+    .map(a => typeof a === 'string' ? a : (a && a.name) || '')
+    .filter(Boolean).join(' · ') || '없음';
   const cogBase = COG_LABEL[senior.cognitiveBaseline] || '미등록';
   const cogIsWarn = senior.cognitiveBaseline && senior.cognitiveBaseline !== 'alert';
 

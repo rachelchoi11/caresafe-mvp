@@ -555,8 +555,12 @@
           <summary>주치의 / 병원 <span class="opt">권장</span></summary>
           <div class="sf-section-body">
             <div class="sf-row">
-              <div class="sf-field"><label>병원명</label><input id="sfDocHospital"></div>
-              <div class="sf-field"><label>진료과</label><input id="sfDocDept"></div>
+              <div class="sf-field">
+                <label>병원명 — 입력하면 데이터셋에서 검색</label>
+                <input id="sfDocHospital" placeholder="예: 서울대병원, 분당서울대">
+                <div id="sfDocHospitalTag" style="font-size:11px; margin-top:4px"></div>
+              </div>
+              <div class="sf-field"><label>진료과</label><input id="sfDocDept" placeholder="예: 내과, 정형외과"></div>
             </div>
             <div class="sf-field"><label>담당의 이름</label><input id="sfDocName"></div>
             <div class="sf-row">
@@ -620,9 +624,11 @@
         <details class="sf-section">
           <summary>보조기기 <span class="opt">선택</span></summary>
           <div class="sf-section-body">
-            <div class="sf-field"><label>사용 중인 보조기기 (쉼표로 구분)</label>
-              <input id="sfAssistive" placeholder="예: 보청기, 안경, 의치, 보행기">
-            </div>
+            <p class="hint" style="margin-top:0;color:#94A3B8;font-size:11px;margin-bottom:10px">
+              🦯 보청기·안경·틀니·보행기·휠체어 등 일상 보조기기. 응급실에서 신원·의사소통 확인에 도움.
+            </p>
+            <div id="sfAssistives"></div>
+            <button type="button" class="sf-add-btn" onclick="sfAddAssistive()">+ 보조기기 추가</button>
           </div>
         </details>
 
@@ -713,6 +719,11 @@
 <script src="data/ai_message_variants.js"></script>
 <script src="data/datasets/search-input.js"></script>
 <script src="data/datasets/allergens.js"></script>
+<script src="data/datasets/medications.js"></script>
+<script src="data/datasets/diagnoses.js"></script>
+<script src="data/datasets/hospitals.js"></script>
+<script src="data/datasets/implants.js"></script>
+<script src="data/datasets/assistive.js"></script>
 <script src="data/meds-runtime.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
@@ -1236,7 +1247,8 @@ function openSeniorForm(uid) {
   setVal('sfDocHospital', ''); setVal('sfDocDept', ''); setVal('sfDocName', '');
   setVal('sfDocPhone', ''); setVal('sfDocErPhone', '');
   setVal('sfDnrRegistered', 'false'); setVal('sfDnrNumber', '');
-  setVal('sfCog', 'alert'); setVal('sfAssistive', '');
+  setVal('sfCog', 'alert');
+  document.getElementById('sfAssistives').innerHTML = '';
   // 위치 동의 토글 (checkbox)
   const locEl = document.getElementById('sfLocConsent');
   if (locEl) locEl.checked = false;
@@ -1279,7 +1291,8 @@ function openSeniorForm(uid) {
       setVal('sfDnrNumber', senior.advanceDirective.registryNumber || '');
     }
     setVal('sfCog', senior.cognitiveBaseline || 'alert');
-    setVal('sfAssistive', (senior.assistiveDevices || []).join(', '));
+    // 보조기기 — 옛 string 배열도 객체 변환해 로드
+    (senior.assistiveDevices || []).forEach(a => sfAddAssistive(a));
     if (locEl) locEl.checked = senior.locationConsent === true;
     (senior.emergencyContacts || []).forEach(c => sfAddContact(c));
     (senior.allergies || []).forEach(a => sfAddAllergy(typeof a === 'string' ? { agent: a } : a));
@@ -1293,6 +1306,38 @@ function openSeniorForm(uid) {
   if (!uid) {
     sfAddContact({ priority: 1 });
     sfAddNote();
+  }
+
+  // 병원명 검색 부착 (한 번만)
+  const docHospInput = document.getElementById('sfDocHospital');
+  if (docHospInput && !docHospInput.dataset.csSearchAttached && window.CareSafeSearchInput && window.CareSafeHospitals) {
+    const tagEl = document.getElementById('sfDocHospitalTag');
+    function updateHospTag() {
+      if (docHospInput.dataset.csCustom === '1') {
+        tagEl.innerHTML = '<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:600">직접 입력 — 운영자 검토 후 정식 등록 검토</span>';
+      } else if (docHospInput.dataset.csId) {
+        tagEl.innerHTML = `<span style="background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:4px;font-weight:600">✓ ${_sfEsc(docHospInput.dataset.csSource || 'HIRA')}</span>`;
+      } else {
+        tagEl.innerHTML = '';
+      }
+    }
+    window.CareSafeSearchInput.attach(docHospInput, {
+      search: (q) => window.CareSafeHospitals.search(q),
+      onSelect: (item, isCustom) => {
+        updateHospTag();
+        if (isCustom && window.CareSafeFB?.writePath && window.CareSafeUser?.uid) {
+          const entryId = 'h' + Date.now() + Math.random().toString(36).slice(2,5);
+          window.CareSafeFB.writePath(`/custom_entries/hospitals/${entryId}`, {
+            name: item.name, addedBy: window.CareSafeUser.uid,
+            addedAt: Date.now(), status: 'pending',
+          }).catch(e => console.warn('[custom_entries] write 실패:', e));
+        }
+      },
+      customTag: '직접 입력 (검토 후 데이터셋 등록 검토)',
+    });
+    updateHospTag();
+    // 편집 모드 진입 시 dataset 미설정 → input 만 채워있고 태그 비어있음
+    docHospInput.addEventListener('input', updateHospTag);
   }
 
   document.getElementById('seniorFormModal').style.display = 'flex';
@@ -1447,17 +1492,34 @@ function sfAddMed(data = {}) {
   div.className = 'sf-item-card';
   div.dataset.kind = 'med';
   const sched = data.schedule || {};
-  const times = (sched.times || []).join(', ');
+  const times = Array.isArray(sched.times) ? sched.times : [];
+  // 알림 활성화 — 신규 항목 디폴트 ON. 기존 데이터 호환.
+  const notifyOn = data.notify !== false;
   div.innerHTML = `
     <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <div class="sf-field">
+      <label>약물명 * — 입력하면 공식 데이터셋에서 검색</label>
+      <input class="sf-m-name" value="${_sfEsc(data.name)}" placeholder="예: 와파린, 메트포민, 자누비아"
+             data-cs-id="${_sfEsc(data.nameId || '')}"
+             data-cs-source="${_sfEsc(data.nameSource || '')}"
+             data-cs-custom="${data.nameCustom ? '1' : '0'}">
+      <div class="sf-name-tag" style="font-size:11px; margin-top:4px"></div>
+    </div>
     <div class="sf-row">
-      <div class="sf-field"><label>약물명 *</label><input class="sf-m-name" value="${_sfEsc(data.name)}" placeholder="예: 와파린"></div>
       <div class="sf-field"><label>용량</label><input class="sf-m-dose" value="${_sfEsc(data.dose)}" placeholder="예: 5mg"></div>
+      <div class="sf-field"><label>분류 (응급)</label><select class="sf-m-critical">
+        <option value="">일반</option>
+        <option value="anticoagulant" ${data.critical==='anticoagulant'?'selected':''}>항응고제</option>
+        <option value="antiplatelet" ${data.critical==='antiplatelet'?'selected':''}>항혈소판제</option>
+        <option value="insulin" ${data.critical==='insulin'?'selected':''}>인슐린</option>
+        <option value="steroid" ${data.critical==='steroid'?'selected':''}>스테로이드</option>
+      </select></div>
     </div>
     <div class="sf-field">
-      <label>복용 시간 (24시간제, 쉼표로 구분) *</label>
-      <input class="sf-m-times" value="${_sfEsc(times)}" placeholder="예: 08:00, 13:00, 20:00">
-      <div class="hint" style="color:#94A3B8;font-size:11px;margin-top:3px">시간이 되면 시니어 디바이스에 알림 + 보호자 모니터링</div>
+      <label>복용 시간 * — 시간별 등록</label>
+      <div class="sf-m-times-wrap" style="display:flex;flex-direction:column;gap:6px"></div>
+      <button type="button" class="sf-add-btn" style="margin-top:6px;font-size:13px" data-add-time>+ 복용 시간 추가</button>
+      <div class="hint" style="color:#94A3B8;font-size:11px;margin-top:4px">시간이 되면 시니어 디바이스에 알림 + 보호자 모니터링</div>
     </div>
     <div class="sf-row">
       <div class="sf-field"><label>요일</label><select class="sf-m-days">
@@ -1467,13 +1529,17 @@ function sfAddMed(data = {}) {
         <option value="mon,wed,fri" ${sched.days==='mon,wed,fri'?'selected':''}>월·수·금</option>
         <option value="tue,thu" ${sched.days==='tue,thu'?'selected':''}>화·목</option>
       </select></div>
-      <div class="sf-field"><label>분류 (응급)</label><select class="sf-m-critical">
-        <option value="">일반</option>
-        <option value="anticoagulant" ${data.critical==='anticoagulant'?'selected':''}>항응고제</option>
-        <option value="antiplatelet" ${data.critical==='antiplatelet'?'selected':''}>항혈소판제</option>
-        <option value="insulin" ${data.critical==='insulin'?'selected':''}>인슐린</option>
-        <option value="steroid" ${data.critical==='steroid'?'selected':''}>스테로이드</option>
-      </select></div>
+      <div class="sf-field">
+        <label>알림</label>
+        <label class="loc-toggle" style="padding:8px 10px">
+          <input type="checkbox" class="sf-m-notify loc-toggle-input" ${notifyOn ? 'checked' : ''}>
+          <span class="loc-toggle-track"><span class="loc-toggle-thumb"></span></span>
+          <span class="loc-toggle-text" style="font-size:12px">
+            <span class="loc-toggle-state-off">알림 끔</span>
+            <span class="loc-toggle-state-on">시간 도달 시 알림</span>
+          </span>
+        </label>
+      </div>
     </div>
     <div class="sf-row">
       <div class="sf-field"><label>시작일</label><input class="sf-m-start" type="date" value="${_sfEsc(sched.startDate)}"></div>
@@ -1481,19 +1547,75 @@ function sfAddMed(data = {}) {
     </div>
     <div class="sf-field"><label>용도·메모</label><input class="sf-m-for" value="${_sfEsc(data.for)}" placeholder="예: 혈전 예방"></div>
     <div class="sf-field">
-      <label>약봉투 사진 (선택, 참고용)</label>
+      <label>약봉투·처방전 사진 (선택, 참고용)</label>
       <input class="sf-m-photo-input" type="file" accept="image/*" style="font-size:12px">
       ${data.photo ? `<div style="margin-top:6px"><img src="${_sfEsc(data.photo)}" style="max-width:120px;border-radius:6px"><div class="hint" style="color:#94A3B8;font-size:11px">이미 첨부됨 · 새 파일 선택 시 교체</div></div>` : ''}
       <input type="hidden" class="sf-m-photo" value="${_sfEsc(data.photo)}">
     </div>
   `;
-  // 사진 첨부 → base64 → hidden input
+
+  // 복용 시간 — 동적 시간 input 추가/제거
+  const timesWrap = div.querySelector('.sf-m-times-wrap');
+  function addTimeRow(value) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;align-items:center';
+    row.innerHTML = `
+      <input type="time" class="sf-m-time-one" value="${_sfEsc(value || '')}" style="flex:1">
+      <button type="button" class="sf-remove" style="position:static;width:32px;height:32px">✕</button>
+    `;
+    row.querySelector('.sf-remove').addEventListener('click', () => row.remove());
+    timesWrap.appendChild(row);
+  }
+  if (times.length > 0) times.forEach(t => addTimeRow(t));
+  else addTimeRow(''); // 신규는 빈 칸 1개
+  div.querySelector('[data-add-time]').addEventListener('click', () => addTimeRow(''));
+
+  // 약물명 검색 부착
+  const nameInput = div.querySelector('.sf-m-name');
+  const nameTag = div.querySelector('.sf-name-tag');
+  function updateNameTag() {
+    if (nameInput.dataset.csCustom === '1') {
+      nameTag.innerHTML = '<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:600">직접 입력 — 운영자 검토 후 정식 등록 검토</span>';
+    } else if (nameInput.dataset.csId) {
+      const src = nameInput.dataset.csSource;
+      nameTag.innerHTML = `<span style="background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:4px;font-weight:600">✓ 공식 데이터셋 (${_sfEsc(src)})</span>`;
+    } else {
+      nameTag.innerHTML = '';
+    }
+  }
+  if (window.CareSafeSearchInput && window.CareSafeMedications) {
+    window.CareSafeSearchInput.attach(nameInput, {
+      search: (q) => window.CareSafeMedications.search(q),
+      onSelect: (item, isCustom) => {
+        updateNameTag();
+        // 공식 데이터셋 선택 시 응급분류·용량 자동 채움 (있으면)
+        if (!isCustom && item.criticalCategory) {
+          const critSel = div.querySelector('.sf-m-critical');
+          if (critSel && !critSel.value) critSel.value = item.criticalCategory;
+        }
+        // 직접 입력은 /custom_entries/medications 큐에 저장
+        if (isCustom && window.CareSafeFB?.writePath && window.CareSafeUser?.uid) {
+          const entryId = 'm' + Date.now() + Math.random().toString(36).slice(2,5);
+          window.CareSafeFB.writePath(`/custom_entries/medications/${entryId}`, {
+            name: item.name,
+            addedBy: window.CareSafeUser.uid,
+            addedAt: Date.now(),
+            status: 'pending',
+          }).catch(e => console.warn('[custom_entries] write 실패:', e));
+        }
+      },
+      customTag: '직접 입력 (검토 후 데이터셋 등록 검토)',
+    });
+  }
+  updateNameTag();
+
+  // 사진 첨부
   const fileInput = div.querySelector('.sf-m-photo-input');
   const hiddenPhoto = div.querySelector('.sf-m-photo');
   fileInput.addEventListener('change', (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (f.size > 500000) { alert('이미지가 500KB 초과 — 더 작은 파일 사용 권장 (압축)'); }
+    if (f.size > 500000) { alert('이미지가 500KB 초과 — 더 작은 파일 권장 (압축)'); }
     const reader = new FileReader();
     reader.onload = () => { hiddenPhoto.value = reader.result; };
     reader.readAsDataURL(f);
@@ -1501,17 +1623,60 @@ function sfAddMed(data = {}) {
   c.appendChild(div);
 }
 
-function sfAddDisease(text = '') {
+function sfAddDisease(data = '') {
   const c = document.getElementById('sfDiseases');
   const div = document.createElement('div');
   div.className = 'sf-item-card';
   div.dataset.kind = 'disease';
-  const v = typeof text === 'string' ? text : '';
+  // 옛 데이터 호환: string 또는 객체
+  const obj = typeof data === 'string' ? { name: data } : (data || {});
   div.innerHTML = `
     <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
-    <div class="sf-field"><label>진단명</label><input class="sf-d-name" value="${_sfEsc(v)}" placeholder="예: 고혈압"></div>
+    <div class="sf-field">
+      <label>진단명 — 입력하면 KCD-8 데이터셋에서 검색</label>
+      <input class="sf-d-name" value="${_sfEsc(obj.name)}" placeholder="예: 고혈압, 당뇨, 치매, 골다공증"
+             data-cs-id="${_sfEsc(obj.nameId || '')}"
+             data-cs-source="${_sfEsc(obj.nameSource || '')}"
+             data-cs-custom="${obj.nameCustom ? '1' : '0'}">
+      <div class="sf-d-tag" style="font-size:11px; margin-top:4px"></div>
+      <input type="hidden" class="sf-d-code" value="${_sfEsc(obj.code || '')}">
+    </div>
   `;
   c.appendChild(div);
+
+  const nameInput = div.querySelector('.sf-d-name');
+  const tagEl = div.querySelector('.sf-d-tag');
+  const codeInput = div.querySelector('.sf-d-code');
+  function updateTag() {
+    if (nameInput.dataset.csCustom === '1') {
+      tagEl.innerHTML = '<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:600">직접 입력 — 운영자 검토 후 정식 등록 검토</span>';
+    } else if (nameInput.dataset.csId) {
+      const src = nameInput.dataset.csSource;
+      const code = codeInput.value;
+      tagEl.innerHTML = `<span style="background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:4px;font-weight:600">✓ ${_sfEsc(code)} · ${_sfEsc(src)}</span>`;
+    } else {
+      tagEl.innerHTML = '';
+    }
+  }
+  if (window.CareSafeSearchInput && window.CareSafeDiagnoses) {
+    window.CareSafeSearchInput.attach(nameInput, {
+      search: (q) => window.CareSafeDiagnoses.search(q),
+      onSelect: (item, isCustom) => {
+        if (!isCustom && item.code) codeInput.value = item.code;
+        else if (isCustom) codeInput.value = '';
+        updateTag();
+        if (isCustom && window.CareSafeFB?.writePath && window.CareSafeUser?.uid) {
+          const entryId = 'd' + Date.now() + Math.random().toString(36).slice(2,5);
+          window.CareSafeFB.writePath(`/custom_entries/diagnoses/${entryId}`, {
+            name: item.name, addedBy: window.CareSafeUser.uid,
+            addedAt: Date.now(), status: 'pending',
+          }).catch(e => console.warn('[custom_entries] write 실패:', e));
+        }
+      },
+      customTag: '직접 입력 (검토 후 데이터셋 등록 검토)',
+    });
+  }
+  updateTag();
 }
 
 function sfAddHistory(data = {}) {
@@ -1536,6 +1701,55 @@ function sfAddHistory(data = {}) {
   c.appendChild(div);
 }
 
+// 보조기기 — 다중 카드 + 검색 + 직접 입력 (다른 도메인과 동일 패턴)
+function sfAddAssistive(data) {
+  const c = document.getElementById('sfAssistives');
+  const div = document.createElement('div');
+  div.className = 'sf-item-card';
+  div.dataset.kind = 'assistive';
+  // 옛 데이터 호환: 단순 string 가능
+  const obj = typeof data === 'string' ? { name: data } : (data || {});
+  div.innerHTML = `
+    <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <div class="sf-field">
+      <label>보조기기명 — 입력하면 데이터셋에서 검색</label>
+      <input class="sf-as-name" value="${_sfEsc(obj.name)}" placeholder="예: 보청기, 안경, 보행기"
+             data-cs-id="${_sfEsc(obj.nameId || '')}"
+             data-cs-source="${_sfEsc(obj.nameSource || '')}"
+             data-cs-custom="${obj.nameCustom ? '1' : '0'}">
+      <div class="sf-as-tag" style="font-size:11px; margin-top:4px"></div>
+    </div>
+  `;
+  c.appendChild(div);
+
+  const nameInput = div.querySelector('.sf-as-name');
+  const tagEl = div.querySelector('.sf-as-tag');
+  function updateTag() {
+    if (nameInput.dataset.csCustom === '1') {
+      tagEl.innerHTML = '<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:600">직접 입력 — 운영자 검토 후</span>';
+    } else if (nameInput.dataset.csId) {
+      tagEl.innerHTML = `<span style="background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:4px;font-weight:600">✓ ${_sfEsc(nameInput.dataset.csSource)}</span>`;
+    } else { tagEl.innerHTML = ''; }
+  }
+  if (window.CareSafeSearchInput && window.CareSafeAssistive) {
+    window.CareSafeSearchInput.attach(nameInput, {
+      search: (q) => window.CareSafeAssistive.search(q),
+      onSelect: (item, isCustom) => {
+        updateTag();
+        if (isCustom && window.CareSafeFB?.writePath && window.CareSafeUser?.uid) {
+          const entryId = 'as' + Date.now() + Math.random().toString(36).slice(2,5);
+          window.CareSafeFB.writePath(`/custom_entries/assistive/${entryId}`, {
+            name: item.name, addedBy: window.CareSafeUser.uid,
+            addedAt: Date.now(), status: 'pending',
+          }).catch(e => console.warn('[custom_entries] write 실패:', e));
+        }
+      },
+      customTag: '직접 입력 (검토 후 데이터셋 등록 검토)',
+    });
+  }
+  updateTag();
+}
+
 function sfAddImplant(data = {}) {
   const c = document.getElementById('sfImplants');
   const div = document.createElement('div');
@@ -1543,7 +1757,14 @@ function sfAddImplant(data = {}) {
   div.dataset.kind = 'implant';
   div.innerHTML = `
     <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
-    <div class="sf-field"><label>설명</label><input class="sf-im-desc" value="${_sfEsc(data.description)}" placeholder="예: 좌측 고관절 인공관절 (티타늄)"></div>
+    <div class="sf-field">
+      <label>의료기기명 — 입력하면 식약처 데이터셋에서 검색</label>
+      <input class="sf-im-desc" value="${_sfEsc(data.description)}" placeholder="예: 인공 고관절, 페이스메이커, 스텐트"
+             data-cs-id="${_sfEsc(data.descId || '')}"
+             data-cs-source="${_sfEsc(data.descSource || '')}"
+             data-cs-custom="${data.descCustom ? '1' : '0'}">
+      <div class="sf-im-tag" style="font-size:11px; margin-top:4px"></div>
+    </div>
     <div class="sf-row">
       <div class="sf-field"><label>시술일</label><input class="sf-im-date" type="date" value="${_sfEsc(data.date)}"></div>
       <div class="sf-field"><label>MRI 호환</label><select class="sf-im-mri">
@@ -1554,6 +1775,35 @@ function sfAddImplant(data = {}) {
     </div>
   `;
   c.appendChild(div);
+
+  const descInput = div.querySelector('.sf-im-desc');
+  const tagEl = div.querySelector('.sf-im-tag');
+  const mriSel = div.querySelector('.sf-im-mri');
+  function updateTag() {
+    if (descInput.dataset.csCustom === '1') {
+      tagEl.innerHTML = '<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:600">직접 입력 — 운영자 검토 후</span>';
+    } else if (descInput.dataset.csId) {
+      tagEl.innerHTML = `<span style="background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:4px;font-weight:600">✓ 공식 데이터셋 (${_sfEsc(descInput.dataset.csSource)})</span>`;
+    } else { tagEl.innerHTML = ''; }
+  }
+  if (window.CareSafeSearchInput && window.CareSafeImplants) {
+    window.CareSafeSearchInput.attach(descInput, {
+      search: (q) => window.CareSafeImplants.search(q),
+      onSelect: (item, isCustom) => {
+        if (!isCustom && item.mriRisk && mriSel) mriSel.value = item.mriRisk;
+        updateTag();
+        if (isCustom && window.CareSafeFB?.writePath && window.CareSafeUser?.uid) {
+          const entryId = 'i' + Date.now() + Math.random().toString(36).slice(2,5);
+          window.CareSafeFB.writePath(`/custom_entries/implants/${entryId}`, {
+            name: item.name, addedBy: window.CareSafeUser.uid,
+            addedAt: Date.now(), status: 'pending',
+          }).catch(e => console.warn('[custom_entries] write 실패:', e));
+        }
+      },
+      customTag: '직접 입력 (검토 후 데이터셋 등록 검토)',
+    });
+  }
+  updateTag();
 }
 
 // ----- 폼 → 시니어 객체 -----
@@ -1584,8 +1834,16 @@ function _sfCollect() {
     diseases: [],
     recentHistory: [],
     implants: [],
-    assistiveDevices: document.getElementById('sfAssistive').value
-      .split(',').map(s => s.trim()).filter(Boolean),
+    assistiveDevices: collect('[data-kind="assistive"]', el => {
+      const nameInput = el.querySelector('.sf-as-name');
+      const name = nameInput.value.trim();
+      if (!name) return null;
+      const obj = { name };
+      if (nameInput.dataset.csId) obj.nameId = nameInput.dataset.csId;
+      if (nameInput.dataset.csSource) obj.nameSource = nameInput.dataset.csSource;
+      if (nameInput.dataset.csCustom === '1') obj.nameCustom = true;
+      return obj;
+    }),
     locationConsent: document.getElementById('sfLocConsent').checked === true,
   };
 
@@ -1633,18 +1891,20 @@ function _sfCollect() {
     return obj;
   });
 
-  // 약물 + schedule + 사진
+  // 약물 + schedule + 사진 + 검색 메타
   senior.meds = collect('[data-kind="med"]', el => {
-    const name = el.querySelector('.sf-m-name').value.trim();
+    const nameInput = el.querySelector('.sf-m-name');
+    const name = nameInput.value.trim();
     if (!name) return null;
     const critical = el.querySelector('.sf-m-critical').value;
     const id = el.dataset.medId || ('m' + Date.now() + Math.random().toString(36).slice(2,5));
     el.dataset.medId = id;
-    const timesRaw = (el.querySelector('.sf-m-times')?.value || '').trim();
-    const times = timesRaw.split(/[,;\s]+/)
-      .map(s => s.trim())
+    // 시간별 input에서 수집 — 빈 칸 필터링·정렬
+    const times = Array.from(el.querySelectorAll('.sf-m-time-one'))
+      .map(inp => inp.value.trim())
       .filter(t => /^\d{1,2}:\d{2}$/.test(t))
-      .map(t => t.padStart(5, '0'));
+      .map(t => t.padStart(5, '0'))
+      .sort();
     const photo = el.querySelector('.sf-m-photo')?.value || '';
     const med = {
       id,
@@ -1657,19 +1917,29 @@ function _sfCollect() {
         startDate: el.querySelector('.sf-m-start')?.value || '',
         endDate: el.querySelector('.sf-m-end')?.value || '',
       },
+      notify: el.querySelector('.sf-m-notify')?.checked !== false,
     };
-    // 사진은 크면 빼고 (Firebase RTDB 1MB 제한)
-    if (photo && photo.length < 700000) med.photo = photo;
+    if (photo && photo.length < 500000) med.photo = photo;
     if (critical) med.critical = critical;
-    // 호환: 옛 time 필드도 같이 표시 (사람이 읽는 용)
-    med.time = times.length ? times.join(', ') : (el.querySelector('.sf-m-time')?.value || '').trim();
+    if (nameInput.dataset.csId) med.nameId = nameInput.dataset.csId;
+    if (nameInput.dataset.csSource) med.nameSource = nameInput.dataset.csSource;
+    if (nameInput.dataset.csCustom === '1') med.nameCustom = true;
+    med.time = times.length ? times.join(', ') : '';
     return med;
   });
 
-  // 진단
+  // 진단 — KCD-8 코드·출처 메타 포함
   senior.diseases = collect('[data-kind="disease"]', el => {
-    const v = el.querySelector('.sf-d-name').value.trim();
-    return v || null;
+    const nameInput = el.querySelector('.sf-d-name');
+    const name = nameInput.value.trim();
+    if (!name) return null;
+    const obj = { name };
+    const code = el.querySelector('.sf-d-code')?.value || '';
+    if (code) obj.code = code;
+    if (nameInput.dataset.csId) obj.nameId = nameInput.dataset.csId;
+    if (nameInput.dataset.csSource) obj.nameSource = nameInput.dataset.csSource;
+    if (nameInput.dataset.csCustom === '1') obj.nameCustom = true;
+    return obj;
   });
 
   // 이력
@@ -1680,15 +1950,20 @@ function _sfCollect() {
     return { date, type: el.querySelector('.sf-h-type').value, description: desc };
   });
 
-  // 이식
+  // 이식·장착 의료기기 — 식약처 데이터셋 메타 포함
   senior.implants = collect('[data-kind="implant"]', el => {
-    const desc = el.querySelector('.sf-im-desc').value.trim();
+    const descInput = el.querySelector('.sf-im-desc');
+    const desc = descInput.value.trim();
     if (!desc) return null;
-    return {
+    const obj = {
       description: desc,
       date: el.querySelector('.sf-im-date').value,
       mriRisk: el.querySelector('.sf-im-mri').value,
     };
+    if (descInput.dataset.csId) obj.descId = descInput.dataset.csId;
+    if (descInput.dataset.csSource) obj.descSource = descInput.dataset.csSource;
+    if (descInput.dataset.csCustom === '1') obj.descCustom = true;
+    return obj;
   });
 
   return senior;
