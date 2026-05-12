@@ -185,12 +185,20 @@
   };
 
   // ---------- storage ----------
+  // 버그 #2 수정: 시니어 0명 상태 보존. seed는 첫 진입(키 자체 없음) 시 1회만.
+  // 사용자가 의도적으로 전부 삭제했으면 빈 상태 유지 — 환영 페이지 표시되도록.
   function load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) { save(seed); return JSON.parse(JSON.stringify(seed)); }
+      if (raw == null) {
+        // 첫 진입 — 시드는 데모 편의 위해 1회만 주입.
+        save(seed);
+        return JSON.parse(JSON.stringify(seed));
+      }
       return JSON.parse(raw);
     } catch (e) {
+      // 파싱 에러만 시드 회복 (의도된 빈 상태가 아닌 손상 케이스)
+      console.warn('[CareSafe] load 파싱 실패 — seed 재주입', e);
       save(seed);
       return JSON.parse(JSON.stringify(seed));
     }

@@ -66,10 +66,12 @@ function buildOverlay() {
         </svg>
         Google로 계속하기
       </button>
-      <p style="color:#94A3B8;font-size:11px;margin:20px 0 0;line-height:1.65">
-        로그인하면 <a href="terms.html" target="_blank" style="color:#0A9396;text-decoration:none">이용약관</a>과
-        <a href="privacy.html" target="_blank" style="color:#0A9396;text-decoration:none">개인정보 처리방침</a>에 동의한 것으로 간주됩니다.
-        <br>본 서비스는 베타이며, 의료 진단·치료를 대체하지 않습니다.
+      <p style="color:#94A3B8;font-size:11px;margin:20px 0 0;line-height:1.7">
+        로그인하면 다음 약관에 동의한 것으로 간주됩니다 (클릭해 내용 확인):<br>
+        <a href="terms.html" target="_blank" style="color:#0A9396;text-decoration:underline">📄 이용약관</a> ·
+        <a href="privacy.html" target="_blank" style="color:#0A9396;text-decoration:underline">🔒 개인정보 처리방침</a> ·
+        <a href="consent.html" target="_blank" style="color:#0A9396;text-decoration:underline">⚕️ 민감정보 처리 동의</a>
+        <br><br>본 서비스는 베타이며, 의료 진단·치료를 대체하지 않습니다.
       </p>
       <div id="csAuthError" style="color:#DC2626;font-size:13px;margin-top:14px;display:none;
                                    background:#FEE2E2;padding:10px;border-radius:8px"></div>

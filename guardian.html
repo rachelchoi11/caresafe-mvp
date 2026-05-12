@@ -7,6 +7,70 @@
 <title>보호자 · CareSafe</title>
 <link rel="stylesheet" href="styles.css">
 <style>
+  /* 빈 상태 환영 카드 (#2 · #4) */
+  .welcome-card {
+    background:white; border-radius:18px; padding:28px 22px; margin:8px 0 18px;
+    box-shadow:0 4px 14px rgba(15,23,42,0.06);
+    border:1px solid #E2E8F0; text-align:center;
+  }
+  .welcome-card .ic { font-size:54px; margin-bottom:12px; }
+  .welcome-card h2 { margin:0 0 10px; color:#0F172A; font-size:22px; }
+  .welcome-card p { color:#475569; line-height:1.6; font-size:14px; margin:0 0 18px; }
+  .welcome-card .welcome-steps {
+    display:flex; flex-direction:column; gap:8px;
+    margin:14px 0 20px; text-align:left;
+  }
+  .welcome-card .step {
+    display:flex; align-items:center; gap:10px;
+    background:#F8FAFC; padding:10px 14px; border-radius:10px;
+    color:#0F172A; font-size:14px; font-weight:600;
+  }
+  .welcome-card .step .num {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:24px; background:#0A9396; color:white;
+    border-radius:50%; font-weight:800; font-size:13px;
+    flex-shrink:0;
+  }
+  .welcome-card .welcome-cta {
+    background:#0A9396; color:white; padding:18px;
+    border-radius:14px; font-size:17px; font-weight:700; border:none;
+    cursor:pointer; font-family:inherit;
+    box-shadow:0 4px 14px rgba(10,147,150,0.3);
+    animation: ctaPulse 1.8s ease-in-out infinite;
+  }
+  .welcome-card .welcome-cta:hover { background:#0F766E; }
+  @keyframes ctaPulse {
+    0%, 100% { transform:scale(1); box-shadow:0 4px 14px rgba(10,147,150,0.3); }
+    50% { transform:scale(1.02); box-shadow:0 6px 20px rgba(10,147,150,0.5); }
+  }
+
+  /* 위치 동의 토글 (#13) — ON/OFF 시각 강조 */
+  .loc-toggle {
+    display:flex; align-items:center; gap:12px; cursor:pointer;
+    padding:12px; border:1px solid #E2E8F0; border-radius:10px;
+    background:#F8FAFC;
+    transition:background 0.15s, border-color 0.15s;
+  }
+  .loc-toggle:has(.loc-toggle-input:checked) { background:#ECFDF5; border-color:#86EFAC; }
+  .loc-toggle .loc-toggle-input { position:absolute; opacity:0; pointer-events:none; }
+  .loc-toggle .loc-toggle-track {
+    flex-shrink:0; width:48px; height:28px; background:#CBD5E1; border-radius:999px;
+    position:relative; transition:background 0.2s;
+  }
+  .loc-toggle .loc-toggle-thumb {
+    position:absolute; top:3px; left:3px;
+    width:22px; height:22px; background:white; border-radius:50%;
+    transition:transform 0.2s, box-shadow 0.2s;
+    box-shadow:0 1px 3px rgba(0,0,0,0.2);
+  }
+  .loc-toggle:has(.loc-toggle-input:checked) .loc-toggle-track { background:#16A34A; }
+  .loc-toggle:has(.loc-toggle-input:checked) .loc-toggle-thumb { transform:translateX(20px); }
+  .loc-toggle .loc-toggle-text { font-size:13px; color:#475569; font-weight:600; line-height:1.4; }
+  .loc-toggle .loc-toggle-state-on { display:none; color:#166534; }
+  .loc-toggle .loc-toggle-state-off { display:inline; }
+  .loc-toggle:has(.loc-toggle-input:checked) .loc-toggle-state-on { display:inline; }
+  .loc-toggle:has(.loc-toggle-input:checked) .loc-toggle-state-off { display:none; }
+
   /* 1초 룰 — hero sticky + 카드 collapse */
   .status-hero {
     position:sticky; top:0; z-index:50;
@@ -265,7 +329,7 @@
     <div class="hstack">
       <span class="brand-logo">CS</span>
       <div>
-        <h1 id="whoTitle">부모님 상태</h1>
+        <h1 id="whoTitle">돌봄대상자 상태</h1>
         <div class="sub" id="whoSub">연결됨 · 실시간</div>
       </div>
     </div>
@@ -280,17 +344,42 @@
     <div id="noSignalBanner" class="no-signal-banner" style="display:none">
       <div class="icon">🌙</div>
       <div class="text">
-        <strong id="noSignalTitle">오늘 부모님 신호가 없습니다</strong>
+        <strong id="noSignalTitle">오늘 신호가 도착하지 않았습니다</strong>
         <span id="noSignalDetail">마지막 활동 신호로부터 시간 경과 — 안부 전화 권유</span>
       </div>
       <a class="cta" id="noSignalCta" href="#">📞 전화</a>
     </div>
 
+    <!-- 빈 상태 — 돌봄대상자 0명일 때 (버그 #2 · 환영 페이지 #4) -->
+    <div id="emptyHost" style="display:none">
+      <div class="welcome-card">
+        <div class="ic">🤝</div>
+        <h2>CareSafe에 오신 걸 환영합니다</h2>
+        <p>
+          가족·이웃 등 돌봄이 필요한 분을 등록하고,
+          긴급 상황을 빠르게 인지하고 도와드릴 수 있어요.
+        </p>
+        <div class="welcome-steps">
+          <div class="step"><span class="num">1</span> 돌봄대상자 추가</div>
+          <div class="step"><span class="num">2</span> 응급 연락처·복약 정보 입력</div>
+          <div class="step"><span class="num">3</span> QR/NFC 카드 발급 + 푸시 알림 활성화</div>
+        </div>
+        <button class="btn block welcome-cta" id="welcomeAddBtn">+ 돌봄대상자 추가하기</button>
+        <p class="hint" style="text-align:center;font-size:12px;color:#94A3B8;margin-top:14px">
+          이용약관·개인정보 처리방침 동의 후 본 기능을 이용할 수 있습니다.<br>
+          <a href="terms.html" target="_blank" style="color:#0F766E">이용약관</a> ·
+          <a href="privacy.html" target="_blank" style="color:#0F766E">개인정보 처리방침</a> ·
+          <a href="consent.html" target="_blank" style="color:#0F766E">민감정보 동의</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- 본 컨텐츠 — 돌봄대상자 1명 이상 -->
     <div class="status-hero" id="hero">
-      <div class="who" id="heroWho">김영자 어머니 · 78세</div>
+      <div class="who" id="heroWho">—</div>
       <div class="state" id="heroState">정상</div>
-      <div class="desc" id="heroDesc">마지막 활동 감지: 방금 전</div>
-      <div class="time" id="heroTime">오늘 오전 09:32 체크인 완료</div>
+      <div class="desc" id="heroDesc">—</div>
+      <div class="time" id="heroTime"></div>
     </div>
 
     <div class="stat-grid">
@@ -310,10 +399,10 @@
     <div class="card">
       <div class="title-row">
         <h2>돌봄 대상자 선택</h2>
-        <span class="muted">복수 부모님 지원</span>
+        <span class="muted">여러 명 지원</span>
       </div>
       <ul class="list" id="seniorSwitch"></ul>
-      <button class="btn ghost block" onclick="openSeniorForm(null)" style="margin-top:10px">➕ 부모님 추가</button>
+      <button class="btn ghost block" onclick="openSeniorForm(null)" style="margin-top:10px">➕ 돌봄대상자 추가</button>
     </div>
 
     <details class="card-collapse">
@@ -327,10 +416,10 @@
     </details>
 
     <details class="card-collapse">
-      <summary>💬 부모님께 안부 보내기 <span class="sum-tag" id="msgContextBadge">상태 확인 중…</span></summary>
+      <summary>💬 안부 메시지 보내기 <span class="sum-tag" id="msgContextBadge">상태 확인 중…</span></summary>
       <div class="cc-body">
         <p class="muted" style="font-size:13px; margin-bottom:10px">
-          AI가 부모님 최근 상태에 맞는 메시지 3개를 추천. 편집해서 카톡·문자로 직접 전송.
+          AI가 돌봄대상자 최근 상태에 맞는 메시지 3개를 추천. 편집해서 카톡·문자로 직접 전송.
         </p>
         <button class="btn block" id="openMsgBtn">💬 안부 톡 작성</button>
       </div>
@@ -380,7 +469,7 @@
   <div id="seniorFormModal" class="modal-overlay sf-modal" style="display:none">
     <div class="modal-content sf-content">
       <div class="sf-header">
-        <h2 id="sfTitle">부모님 등록</h2>
+        <h2 id="sfTitle">돌봄대상자 등록</h2>
         <button class="modal-close" onclick="closeSeniorForm()" style="position:static">✕</button>
       </div>
       <div class="sf-body">
@@ -390,19 +479,37 @@
           <summary>기본 정보 <span class="req">필수</span></summary>
           <div class="sf-section-body">
             <div class="sf-field"><label>이름 (또는 호칭) *</label><input id="sfName" maxlength="20" placeholder="예: 김영자"></div>
+            <div class="sf-field">
+              <label>보호자(나)와의 관계 *</label>
+              <input id="sfRelationship" maxlength="20" placeholder="예: 어머니 · 아버지 · 배우자 · 이모 · 이웃 어르신" list="sfRelationshipList">
+              <datalist id="sfRelationshipList">
+                <option value="어머니"><option value="아버지"><option value="배우자">
+                <option value="할머니"><option value="할아버지">
+                <option value="장모"><option value="장인"><option value="시어머니"><option value="시아버지">
+                <option value="이모"><option value="이모부"><option value="고모"><option value="고모부">
+                <option value="삼촌"><option value="외삼촌"><option value="형"><option value="누나">
+                <option value="언니"><option value="오빠"><option value="동생">
+                <option value="이웃"><option value="친척"><option value="기타">
+              </datalist>
+            </div>
             <div class="sf-row">
               <div class="sf-field"><label>나이 *</label><input id="sfAge" type="number" min="50" max="120" placeholder="78"></div>
               <div class="sf-field"><label>성별 *</label><select id="sfGender"><option value="F">여성</option><option value="M">남성</option></select></div>
             </div>
             <div class="sf-row">
               <div class="sf-field"><label>혈액형 *</label><select id="sfBlood"><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option><option value="">미확인</option></select></div>
-              <div class="sf-field"><label>거주 지역</label><input id="sfRegion" placeholder="예: 서울 강남구"></div>
+              <div class="sf-field"><label>거주 지역</label><input id="sfRegion" placeholder="정확한 주소를 입력해 주세요"></div>
             </div>
             <div class="sf-row">
               <div class="sf-field"><label>신장 (cm)</label><input id="sfHeight" type="number" min="100" max="220"></div>
               <div class="sf-field"><label>체중 (kg)</label><input id="sfWeight" type="number" min="30" max="200"></div>
             </div>
-            <div class="sf-field"><label>최근 이력 메모</label><input id="sfNote" placeholder="예: 고관절 수술 퇴원 2주차"></div>
+            <div class="sf-field">
+              <label>최근 이력 메모 (여러 개 추가 가능)</label>
+              <div id="sfNotes" style="display:flex; flex-direction:column; gap:8px;"></div>
+              <button type="button" class="sf-add-btn" style="margin-top:8px" onclick="sfAddNote()">+ 메모 추가</button>
+              <div class="hint" style="color:#94A3B8;font-size:11px;margin-top:4px">예: 5/12 — 고관절 수술 퇴원 2주차. Enter로 줄바꿈 가능.</div>
+            </div>
           </div>
         </details>
 
@@ -526,13 +633,14 @@
               📍 SOS 누름 시 보호자에게 위치 정보 함께 전송. 외출 시 응급 대응에 핵심.
               민감정보(개인정보보호법) — 시니어 본인 동의 필수. 미동의 시 텍스트 알림만 전송.
             </p>
-            <div class="sf-field">
-              <label>위치 추적 동의</label>
-              <select id="sfLocConsent">
-                <option value="false">미동의 (텍스트 알림만) — 기본</option>
-                <option value="true">동의 (위치 함께 전송)</option>
-              </select>
-            </div>
+            <label class="loc-toggle" id="sfLocToggleLabel">
+              <input type="checkbox" id="sfLocConsent" class="loc-toggle-input">
+              <span class="loc-toggle-track"><span class="loc-toggle-thumb"></span></span>
+              <span class="loc-toggle-text">
+                <span class="loc-toggle-state-off">위치 미동의 — 텍스트 알림만</span>
+                <span class="loc-toggle-state-on">위치 동의 — SOS 시 함께 전송</span>
+              </span>
+            </label>
           </div>
         </details>
 
@@ -555,7 +663,7 @@
     <div class="modal-content">
       <button class="modal-close" onclick="closeMsgModal()">✕</button>
       <span class="msg-context-badge" id="msgCtxBadge">상태 분석 중…</span>
-      <h2 id="msgModalTitle">부모님께 안부 보내기</h2>
+      <h2 id="msgModalTitle">안부 메시지 보내기</h2>
       <p class="intro" id="msgIntro">아래 톤 중 하나 선택하거나 직접 편집하세요.</p>
       <div id="msgToneList"></div>
       <div style="margin-top:14px">
@@ -613,16 +721,40 @@ const E = window.CareSafe?.esc || (s => String(s == null ? '' : s).replace(/[&<>
 
 function render() {
   const state = CareSafe.load();
+
+  // 빈 상태 분기 (#2 버그·#4 환영) — 돌봄대상자 0명이면 환영 카드만 표시
+  const emptyHost = document.getElementById('emptyHost');
+  const heroEl = document.getElementById('hero');
+  const contentCards = document.querySelectorAll('.stat-grid, .card, .card-collapse');
+  if (state.seniors.length === 0) {
+    if (emptyHost) emptyHost.style.display = 'block';
+    if (heroEl) heroEl.style.display = 'none';
+    contentCards.forEach(el => { el.style.display = 'none'; });
+    document.getElementById('whoTitle').textContent = 'CareSafe';
+    document.getElementById('whoSub').textContent = '돌봄대상자를 추가해주세요';
+    return;
+  }
+  if (emptyHost) emptyHost.style.display = 'none';
+  if (heroEl) heroEl.style.display = '';
+  contentCards.forEach(el => { el.style.display = ''; });
+  document.getElementById('whoTitle').textContent = '나의 돌봄';
+  document.getElementById('whoSub').textContent = '연결됨 · 실시간';
+
   const active = state.seniors.find(s => s.id === state.activeUid) || state.seniors[0];
 
-  // hero
+  // hero — 보호자 기준 관계 사용 (없으면 이름만)
   const hero = document.getElementById('hero');
   hero.className = 'status-hero ' + (active.status === 'ok' ? '' : active.status);
-  document.getElementById('heroWho').textContent = active.name + ' ' + (active.name.endsWith('자') || active.name.endsWith('숙') || active.name.endsWith('애') ? '어머니' : '아버지') + ' · ' + active.age + '세';
+  const _addr = active.relationship ? `${active.name} ${active.relationship}` : active.name;
+  document.getElementById('heroWho').textContent = `${_addr} · ${active.age}세`;
   document.getElementById('heroState').textContent = LEVEL_TEXT[active.status] || '정상';
   const lastAlert = state.alerts.find(a => a.uid === active.id);
   document.getElementById('heroDesc').textContent = active.status === 'danger' ? '긴급 신호 수신 — 즉시 확인 필요' : active.status === 'warn' ? (lastAlert?.text || '주의 필요') : '마지막 활동 감지: ' + CareSafe.fmtTime(active.lastPing);
-  document.getElementById('heroTime').textContent = active.note;
+  // 최근 메모 1건 표시 (배열이면 최신, 단일이면 그대로)
+  const _latestNote = Array.isArray(active.notes) && active.notes.length
+    ? active.notes[active.notes.length - 1].text
+    : (active.note || '');
+  document.getElementById('heroTime').textContent = _latestNote;
 
   // stats
   document.getElementById('sBattery').textContent = active.battery + '%';
@@ -653,18 +785,21 @@ function render() {
   }).join('') || '<li class="muted" style="padding:16px; text-align:center">아직 알림이 없습니다</li>';
   document.getElementById('alertCount').textContent = mine.length + '건';
 
-  // switcher — Codex P2 #6 (재검토): 인라인 onclick 대신 data-uid + 위임
+  // switcher — 보호자 기준 관계 표시. 클릭=활성·재클릭=편집(#14)
   const sw = document.getElementById('seniorSwitch');
   sw.innerHTML = state.seniors.map(s => {
     const safeStatus = ['ok','warn','danger'].includes(s.status) ? s.status : 'ok';
+    const isActive = s.id === active.id;
+    const relText = s.relationship ? E(s.relationship) : '관계 미설정';
     return `
-    <li class="list-item ${s.id === active.id ? 'ok' : ''}" style="cursor:pointer" data-uid="${E(s.id)}">
-      <div class="icon">${s.id === active.id ? '✅' : '👵'}</div>
+    <li class="list-item ${isActive ? 'ok' : ''}" style="cursor:pointer" data-uid="${E(s.id)}" title="${isActive ? '다시 누르면 편집' : '눌러서 선택'}">
+      <div class="icon">${isActive ? '✅' : '👤'}</div>
       <div class="body">
-        <div class="t">${E(s.name)} (${E(s.age)}세)</div>
-        <div class="s">${E(s.region)} · ${E(s.guardian)}</div>
+        <div class="t">${E(s.name)} <span class="muted" style="font-weight:500">· ${relText} · ${E(s.age)}세</span></div>
+        <div class="s">${E(s.region || '지역 미설정')}</div>
       </div>
       <span class="pill ${safeStatus}">${LEVEL_TEXT[safeStatus]}</span>
+      ${isActive ? '<span style="font-size:11px;color:#94A3B8;margin-left:8px">✏️</span>' : ''}
     </li>`;
   }).join('');
 
@@ -1087,19 +1222,22 @@ function _sfEsc(s) {
 
 function openSeniorForm(uid) {
   sfEditingUid = uid;
-  document.getElementById('sfTitle').textContent = uid ? '응급정보 편집' : '부모님 등록';
+  document.getElementById('sfTitle').textContent = uid ? '돌봄대상자 편집' : '돌봄대상자 등록';
   document.getElementById('sfError').classList.remove('show');
 
   // 기본 비우기
   const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : v; };
-  setVal('sfName', ''); setVal('sfAge', ''); setVal('sfGender', 'F');
+  setVal('sfName', ''); setVal('sfRelationship', '');
+  setVal('sfAge', ''); setVal('sfGender', 'F');
   setVal('sfBlood', 'A+'); setVal('sfRegion', ''); setVal('sfHeight', '');
-  setVal('sfWeight', ''); setVal('sfNote', '');
+  setVal('sfWeight', '');
   setVal('sfDocHospital', ''); setVal('sfDocDept', ''); setVal('sfDocName', '');
   setVal('sfDocPhone', ''); setVal('sfDocErPhone', '');
   setVal('sfDnrRegistered', 'false'); setVal('sfDnrNumber', '');
   setVal('sfCog', 'alert'); setVal('sfAssistive', '');
-  setVal('sfLocConsent', 'false');  // Codex P2 #9: 명시적 opt-in 기본값
+  // 위치 동의 토글 (checkbox)
+  const locEl = document.getElementById('sfLocConsent');
+  if (locEl) locEl.checked = false;
 
   document.getElementById('sfContacts').innerHTML = '';
   document.getElementById('sfAllergies').innerHTML = '';
@@ -1107,19 +1245,26 @@ function openSeniorForm(uid) {
   document.getElementById('sfDiseases').innerHTML = '';
   document.getElementById('sfHistory').innerHTML = '';
   document.getElementById('sfImplants').innerHTML = '';
+  document.getElementById('sfNotes').innerHTML = '';
 
   if (uid) {
     // 편집 모드 — 기존 데이터 로드
     const senior = CareSafe.load().seniors.find(s => s.id === uid);
-    if (!senior) return alert('시니어를 찾을 수 없습니다.');
+    if (!senior) return alert('돌봄대상자를 찾을 수 없습니다.');
     setVal('sfName', senior.name);
+    setVal('sfRelationship', senior.relationship || '');
     setVal('sfAge', senior.age);
     setVal('sfGender', senior.gender || 'F');
     setVal('sfBlood', senior.blood || 'A+');
     setVal('sfRegion', senior.region);
     setVal('sfHeight', senior.height);
     setVal('sfWeight', senior.weight);
-    setVal('sfNote', senior.note);
+    // 최근 이력 메모: 옛 단일 string → 배열로 변환 호환
+    if (Array.isArray(senior.notes)) {
+      senior.notes.forEach(n => sfAddNote(typeof n === 'string' ? { text: n } : n));
+    } else if (senior.note) {
+      sfAddNote({ text: senior.note });
+    }
     if (senior.doctor) {
       setVal('sfDocHospital', senior.doctor.hospital);
       setVal('sfDocDept', senior.doctor.dept);
@@ -1133,7 +1278,7 @@ function openSeniorForm(uid) {
     }
     setVal('sfCog', senior.cognitiveBaseline || 'alert');
     setVal('sfAssistive', (senior.assistiveDevices || []).join(', '));
-    setVal('sfLocConsent', senior.locationConsent === true ? 'true' : 'false');  // Codex P2 #9: 명시적 opt-in
+    if (locEl) locEl.checked = senior.locationConsent === true;
     (senior.emergencyContacts || []).forEach(c => sfAddContact(c));
     (senior.allergies || []).forEach(a => sfAddAllergy(typeof a === 'string' ? { agent: a } : a));
     (senior.meds || []).forEach(m => sfAddMed(m));
@@ -1142,8 +1287,11 @@ function openSeniorForm(uid) {
     (senior.implants || []).forEach(im => sfAddImplant(im));
   }
 
-  // 1순위 연락처는 신규일 때 빈 카드 1개 자동
-  if (!uid) sfAddContact({ priority: 1 });
+  // 1순위 연락처·메모는 신규일 때 빈 카드 1개 자동
+  if (!uid) {
+    sfAddContact({ priority: 1 });
+    sfAddNote();
+  }
 
   document.getElementById('seniorFormModal').style.display = 'flex';
   window.scrollTo(0, 0);
@@ -1160,19 +1308,57 @@ function sfAddContact(data = {}) {
   const div = document.createElement('div');
   div.className = 'sf-item-card';
   div.dataset.kind = 'contact';
+  // 이름·관계 분리 — 옛 데이터(예: "김민지 (딸)") 호환: 괄호 파싱
+  let _name = data.name || '';
+  let _relation = data.relationship || '';
+  if (!_relation && _name) {
+    const m = _name.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+    if (m) { _name = m[1].trim(); _relation = m[2].trim(); }
+  }
   div.innerHTML = `
     <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
     <div class="sf-row">
-      <div class="sf-field"><label>이름·관계</label><input class="sf-c-name" value="${_sfEsc(data.name)}" placeholder="예: 김민지 (딸)"></div>
+      <div class="sf-field"><label>이름</label><input class="sf-c-name" value="${_sfEsc(_name)}" placeholder="예: 김민지"></div>
+      <div class="sf-field"><label>관계</label><input class="sf-c-relation" value="${_sfEsc(_relation)}" placeholder="예: 딸 · 며느리 · 친구" list="sfContactRelationList"></div>
+    </div>
+    <datalist id="sfContactRelationList">
+      <option value="딸"><option value="아들"><option value="며느리"><option value="사위">
+      <option value="손녀"><option value="손자"><option value="배우자"><option value="형"><option value="누나">
+      <option value="언니"><option value="오빠"><option value="동생"><option value="친구"><option value="이웃"><option value="요양보호사">
+    </datalist>
+    <div class="sf-row">
       <div class="sf-field"><label>우선순위</label><select class="sf-c-prio">
         <option value="1" ${data.priority==1?'selected':''}>1순위</option>
         <option value="2" ${data.priority==2?'selected':''}>2순위</option>
         <option value="3" ${data.priority==3?'selected':''}>3순위</option>
       </select></div>
+      <div class="sf-field"><label>전화번호</label><input class="sf-c-phone" type="tel" value="${_sfEsc(data.phone)}" placeholder="010-0000-0000"></div>
     </div>
-    <div class="sf-field"><label>전화번호</label><input class="sf-c-phone" type="tel" value="${_sfEsc(data.phone)}" placeholder="010-0000-0000"></div>
   `;
   c.appendChild(div);
+}
+
+// 최근 이력 메모 — 다중 항목 + 자동 타임스탬프 + 편집 + 줄바꿈(textarea)
+function sfAddNote(data = {}) {
+  const host = document.getElementById('sfNotes');
+  const ts = data.ts || Date.now();
+  const div = document.createElement('div');
+  div.className = 'sf-item-card';
+  div.dataset.kind = 'note';
+  div.dataset.ts = ts;
+  const d = new Date(ts);
+  const dateLabel = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  div.innerHTML = `
+    <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
+    <div class="sf-field">
+      <label style="display:flex; justify-content:space-between; align-items:center">
+        <span>메모</span>
+        <span class="muted" style="font-size:11px; font-weight:400">📅 ${_sfEsc(dateLabel)}</span>
+      </label>
+      <textarea class="sf-note-text" rows="3" placeholder="예: 고관절 수술 퇴원 2주차. 산책 시작.&#10;Enter로 줄바꿈 가능.">${_sfEsc(data.text || '')}</textarea>
+    </div>
+  `;
+  host.appendChild(div);
 }
 
 function sfAddAllergy(data = {}) {
@@ -1316,13 +1502,18 @@ function _sfCollect() {
 
   const senior = {
     name: document.getElementById('sfName').value.trim(),
+    relationship: document.getElementById('sfRelationship').value.trim(),
     age: parseInt(document.getElementById('sfAge').value, 10),
     gender: document.getElementById('sfGender').value,
     blood: document.getElementById('sfBlood').value || '',
     region: document.getElementById('sfRegion').value.trim(),
     height: parseInt(document.getElementById('sfHeight').value, 10) || null,
     weight: parseInt(document.getElementById('sfWeight').value, 10) || null,
-    note: document.getElementById('sfNote').value.trim(),
+    notes: collect('[data-kind="note"]', el => {
+      const text = el.querySelector('.sf-note-text').value.trim();
+      if (!text) return null;
+      return { ts: parseInt(el.dataset.ts, 10) || Date.now(), text };
+    }),
     cognitiveBaseline: document.getElementById('sfCog').value,
     doctor: null,
     advanceDirective: null,
@@ -1334,7 +1525,7 @@ function _sfCollect() {
     implants: [],
     assistiveDevices: document.getElementById('sfAssistive').value
       .split(',').map(s => s.trim()).filter(Boolean),
-    locationConsent: document.getElementById('sfLocConsent').value !== 'false',
+    locationConsent: document.getElementById('sfLocConsent').checked === true,
   };
 
   // 주치의
@@ -1354,12 +1545,13 @@ function _sfCollect() {
     registryNumber: dnrReg ? document.getElementById('sfDnrNumber').value.trim() : null,
   };
 
-  // 연락처
+  // 연락처 — 이름·관계 별도 항목
   senior.emergencyContacts = collect('[data-kind="contact"]', el => {
     const name = el.querySelector('.sf-c-name').value.trim();
+    const relationship = el.querySelector('.sf-c-relation')?.value.trim() || '';
     const phone = el.querySelector('.sf-c-phone').value.trim();
     const priority = parseInt(el.querySelector('.sf-c-prio').value, 10);
-    return (name && phone) ? { name, phone, priority } : null;
+    return (name && phone) ? { name, relationship, phone, priority } : null;
   }).sort((a, b) => a.priority - b.priority);
 
   // 알레르기
@@ -1485,7 +1677,7 @@ async function saveSenior() {
       await CareSafe.setActive(uid);
     }
     closeSeniorForm();
-    CareSafe.toast(sfEditingUid ? '응급정보 저장 완료' : '부모님 등록 완료', 'ok');
+    CareSafe.toast(sfEditingUid ? '응급정보 저장 완료' : '돌봄대상자 등록 완료', 'ok');
     render();
   } catch (e) {
     _sfShowError('저장 실패: ' + (e.message || e));
@@ -1739,12 +1931,20 @@ CareSafe.subscribe((msg) => {
   render();
 });
 
-// Codex P2 #6 (재검토): 시니어 스위처·체크리스트·알림 리스트 위임 — 인라인 onclick XSS 우회 차단
+// 환영 카드 버튼 — 빈 상태에서 추가 진입
+document.getElementById('welcomeAddBtn')?.addEventListener('click', () => openSeniorForm(null));
+
+// 시니어 스위처 — 비활성 클릭=활성화, 활성 재클릭=편집 진입 (버그 #14 수정)
 document.getElementById('seniorSwitch').addEventListener('click', (ev) => {
   const li = ev.target.closest('li[data-uid]');
   if (!li) return;
-  CareSafe.setActive(li.dataset.uid);
-  render();
+  const state = CareSafe.load();
+  if (state.activeUid === li.dataset.uid) {
+    openSeniorForm(li.dataset.uid);
+  } else {
+    CareSafe.setActive(li.dataset.uid);
+    render();
+  }
 });
 document.getElementById('checklistBody').addEventListener('click', (ev) => {
   const item = ev.target.closest('.checklist-item[data-key]');

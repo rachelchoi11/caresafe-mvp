@@ -199,7 +199,8 @@ function installFirebaseAdapter(FB) {
     "qrToken"
   ]);
   const _PRIVATE_KEYS = new Set([
-    "region","note","guardian","phone","status","battery","lastPing","locationConsent",
+    "region","note","notes","guardian","phone","status","battery","lastPing","locationConsent",
+    "relationship",         // 보호자 기준 관계 — 보호자 시점 정보, 외부 응급 노출 ❌
     "advanceDirective",     // DNR 등록번호 = 민감 식별자. 등록 여부만 별도 노출 검토 (v1.0)
     "recentHistory",        // 구체 입원·수술 일자 = 식별 가능
     "implants",             // 모델명·수술일자 = 식별 가능
