@@ -711,6 +711,8 @@
 <script src="data/ai_guide_variants.js"></script>
 <script src="data/checklist.js"></script>
 <script src="data/ai_message_variants.js"></script>
+<script src="data/datasets/search-input.js"></script>
+<script src="data/datasets/allergens.js"></script>
 <script src="data/meds-runtime.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
@@ -1368,16 +1370,75 @@ function sfAddAllergy(data = {}) {
   div.dataset.kind = 'allergy';
   div.innerHTML = `
     <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
-    <div class="sf-field"><label>알레르겐 (원인)</label><input class="sf-a-agent" value="${_sfEsc(data.agent)}" placeholder="예: 페니실린, 조개류"></div>
+    <div class="sf-field">
+      <label>알레르겐 (원인) — 입력하면 공식 데이터셋에서 검색</label>
+      <input class="sf-a-agent" value="${_sfEsc(data.agent)}" placeholder="예: 페니실린, 조개류, 땅콩"
+             data-cs-id="${_sfEsc(data.agentId || '')}"
+             data-cs-source="${_sfEsc(data.agentSource || '')}"
+             data-cs-custom="${data.agentCustom ? '1' : '0'}">
+      <div class="sf-agent-tag" style="font-size:11px; margin-top:4px"></div>
+    </div>
     <div class="sf-row">
-      <div class="sf-field"><label>반응 양상</label><input class="sf-a-reaction" value="${_sfEsc(data.reaction)}" placeholder="예: 발진·두드러기"></div>
+      <div class="sf-field"><label>반응 양상</label><input class="sf-a-reaction" value="${_sfEsc(data.reaction)}" placeholder="예: 발진·두드러기·호흡곤란"></div>
       <div class="sf-field"><label>심각도</label><select class="sf-a-severity">
         <option value="mild" ${data.severity!=='severe'?'selected':''}>경증</option>
         <option value="severe" ${data.severity==='severe'?'selected':''}>중증 (아나필락시스)</option>
       </select></div>
     </div>
+    <div class="sf-field">
+      <label>진단지·처방전 사진 (선택)</label>
+      <input type="file" accept="image/*" class="sf-a-photo-input" style="font-size:12px">
+      ${data.photo ? `<div style="margin-top:6px"><img src="${_sfEsc(data.photo)}" style="max-width:120px;border-radius:6px"><div class="hint" style="color:#94A3B8;font-size:11px">이미 첨부됨 · 새 파일 선택 시 교체</div></div>` : ''}
+      <input type="hidden" class="sf-a-photo" value="${_sfEsc(data.photo)}">
+    </div>
   `;
   c.appendChild(div);
+
+  // 검색 컴포넌트 부착
+  const agentInput = div.querySelector('.sf-a-agent');
+  const tagEl = div.querySelector('.sf-agent-tag');
+  function updateTag() {
+    if (agentInput.dataset.csCustom === '1') {
+      tagEl.innerHTML = '<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:600">직접 입력 — 운영자 검토 후 정식 등록 검토</span>';
+    } else if (agentInput.dataset.csId) {
+      const src = agentInput.dataset.csSource;
+      tagEl.innerHTML = `<span style="background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:4px;font-weight:600">✓ 공식 데이터셋 (${_sfEsc(src)})</span>`;
+    } else {
+      tagEl.innerHTML = '';
+    }
+  }
+  if (window.CareSafeSearchInput && window.CareSafeAllergens) {
+    window.CareSafeSearchInput.attach(agentInput, {
+      search: (q) => window.CareSafeAllergens.search(q),
+      onSelect: (item, isCustom) => {
+        updateTag();
+        // 직접 입력은 Firebase /custom_entries/allergens 에 비동기 저장
+        if (isCustom && window.CareSafeFB?.writePath && window.CareSafeUser?.uid) {
+          const entryId = 'a' + Date.now() + Math.random().toString(36).slice(2,5);
+          window.CareSafeFB.writePath(`/custom_entries/allergens/${entryId}`, {
+            name: item.name,
+            addedBy: window.CareSafeUser.uid,
+            addedAt: Date.now(),
+            status: 'pending',
+          }).catch(e => console.warn('[custom_entries] write 실패:', e));
+        }
+      },
+      customTag: '직접 입력 (검토 후 데이터셋 등록 검토)',
+    });
+  }
+  updateTag();
+
+  // 이미지 첨부
+  const fileInput = div.querySelector('.sf-a-photo-input');
+  const hiddenPhoto = div.querySelector('.sf-a-photo');
+  fileInput.addEventListener('change', (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 500000) { alert('이미지가 500KB 초과 — 더 작은 파일 권장 (압축)'); }
+    const reader = new FileReader();
+    reader.onload = () => { hiddenPhoto.value = reader.result; };
+    reader.readAsDataURL(f);
+  });
 }
 
 function sfAddMed(data = {}) {
@@ -1554,15 +1615,22 @@ function _sfCollect() {
     return (name && phone) ? { name, relationship, phone, priority } : null;
   }).sort((a, b) => a.priority - b.priority);
 
-  // 알레르기
+  // 알레르기 — 공식 데이터셋 매칭 + 직접 입력 분리
   senior.allergies = collect('[data-kind="allergy"]', el => {
-    const agent = el.querySelector('.sf-a-agent').value.trim();
+    const agentInput = el.querySelector('.sf-a-agent');
+    const agent = agentInput.value.trim();
     if (!agent) return null;
-    return {
+    const photo = el.querySelector('.sf-a-photo')?.value || '';
+    const obj = {
       agent,
       reaction: el.querySelector('.sf-a-reaction').value.trim() || '미상',
       severity: el.querySelector('.sf-a-severity').value,
     };
+    if (agentInput.dataset.csId) obj.agentId = agentInput.dataset.csId;
+    if (agentInput.dataset.csSource) obj.agentSource = agentInput.dataset.csSource;
+    if (agentInput.dataset.csCustom === '1') obj.agentCustom = true;
+    if (photo && photo.length < 500000) obj.photo = photo;
+    return obj;
   });
 
   // 약물 + schedule + 사진

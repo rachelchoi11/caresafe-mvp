@@ -79,6 +79,7 @@
       <a onclick="setTab('guardians')">👪 보호자 관리</a>
       <a onclick="setTab('alerts')">🔔 알림 이력</a>
       <a onclick="setTab('pilots')">🏥 체험단·병원 파이프라인</a>
+      <a onclick="setTab('datasets')">📚 데이터셋 관리</a>
       <a onclick="setTab('settings')">⚙️ 설정</a>
     </nav>
   </aside>
@@ -202,6 +203,29 @@
       </div>
     </section>
 
+    <!-- ===== 데이터셋 관리 (custom_entries 검토 큐) ===== -->
+    <section id="sec-datasets" class="admin-section">
+      <div class="panel">
+        <h2>📚 데이터셋 관리</h2>
+        <p class="muted" style="font-size:13px">
+          사용자가 직접 입력한 알레르겐·약물·진단명·병원·이식기기·보조기기 항목 검토.
+          승인 시 정식 데이터셋(코드 파일)에 추가하기 위한 신청 큐. <strong>승인은 운영자가 데이터셋 파일을 수동 갱신</strong>해야 반영됩니다.
+        </p>
+        <div class="admin-tabs" style="margin-top:14px">
+          <button data-ds-cat="allergens" class="active">🌿 알레르기</button>
+          <button data-ds-cat="medications">💊 약물</button>
+          <button data-ds-cat="diagnoses">🩺 진단명</button>
+          <button data-ds-cat="hospitals">🏥 병원</button>
+          <button data-ds-cat="implants">⚙️ 이식기기</button>
+          <button data-ds-cat="assistive">🦯 보조기기</button>
+        </div>
+        <table style="margin-top:14px">
+          <thead><tr><th>이름</th><th>등록자 UID</th><th>등록일시</th><th>상태</th><th>처리</th></tr></thead>
+          <tbody id="datasetRows"><tr><td colspan="5" class="muted" style="text-align:center;padding:20px">카테고리 선택</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- ===== 설정 ===== -->
     <section id="sec-settings" class="admin-section">
       <div class="panel">
@@ -298,12 +322,76 @@ function setTab(name) {
     guardians: '보호자 계정 관리',
     alerts: '알림 이력 · 무응답 추적',
     pilots: '체험단 · 병원 파이프라인',
+    datasets: '데이터셋 관리 — 직접 입력 검토 큐',
     settings: '운영 설정',
   };
   document.getElementById('pageTitle').textContent = titles[name] || '';
   if (name === 'guardians') renderGuardians();
   if (name === 'pilots') renderPilots();
+  if (name === 'datasets') renderDataset('allergens');
 }
+
+// 데이터셋 관리 — custom_entries 검토 큐
+let _dsCurrentCat = 'allergens';
+async function renderDataset(cat) {
+  _dsCurrentCat = cat;
+  document.querySelectorAll('[data-ds-cat]').forEach(b => b.classList.toggle('active', b.dataset.dsCat === cat));
+  const rowsEl = document.getElementById('datasetRows');
+  if (!window.CareSafeFB) {
+    rowsEl.innerHTML = '<tr><td colspan="5" class="muted" style="text-align:center;padding:20px">Firebase 모드에서만 조회 가능</td></tr>';
+    return;
+  }
+  try {
+    const data = await window.CareSafeFB.readPath(`/custom_entries/${cat}`);
+    const entries = data ? Object.entries(data) : [];
+    if (entries.length === 0) {
+      rowsEl.innerHTML = '<tr><td colspan="5" class="muted" style="text-align:center;padding:20px">신청된 항목 없음</td></tr>';
+      return;
+    }
+    rowsEl.innerHTML = entries
+      .sort(([,a],[,b]) => (b.addedAt||0) - (a.addedAt||0))
+      .map(([eid, en]) => {
+        const ts = en.addedAt ? new Date(en.addedAt).toLocaleString('ko-KR') : '—';
+        const statusColor = en.status === 'approved' ? '#16A34A' : en.status === 'rejected' ? '#DC2626' : '#F59E0B';
+        return `
+          <tr>
+            <td><strong>${E(en.name || '—')}</strong></td>
+            <td class="muted" style="font-size:11px">${E((en.addedBy || '—').slice(0, 12))}…</td>
+            <td>${E(ts)}</td>
+            <td><span class="pill" style="background:${statusColor};color:white;padding:2px 8px;border-radius:4px;font-size:11px">${E(en.status || 'pending')}</span></td>
+            <td>
+              <button class="btn small" data-ds-approve="${E(eid)}" style="background:#16A34A;color:white;margin-right:4px">승인</button>
+              <button class="btn small ghost" data-ds-reject="${E(eid)}">거부</button>
+            </td>
+          </tr>`;
+      }).join('');
+  } catch (e) {
+    rowsEl.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;padding:20px">조회 실패: ${E(e.message)}</td></tr>`;
+  }
+}
+
+// 카테고리 탭 + 승인·거부 위임
+document.addEventListener('click', async (ev) => {
+  const catBtn = ev.target.closest('[data-ds-cat]');
+  if (catBtn) { renderDataset(catBtn.dataset.dsCat); return; }
+  const approveBtn = ev.target.closest('[data-ds-approve]');
+  if (approveBtn) {
+    const eid = approveBtn.dataset.dsApprove;
+    if (!confirm('승인 처리합니다. 정식 데이터셋 코드 파일 갱신은 별도 작업 필요. 계속?')) return;
+    await window.CareSafeFB.writePath(`/custom_entries/${_dsCurrentCat}/${eid}/status`, 'approved');
+    await window.CareSafeFB.writePath(`/custom_entries/${_dsCurrentCat}/${eid}/reviewedAt`, Date.now());
+    renderDataset(_dsCurrentCat);
+    return;
+  }
+  const rejectBtn = ev.target.closest('[data-ds-reject]');
+  if (rejectBtn) {
+    const eid = rejectBtn.dataset.dsReject;
+    if (!confirm('거부 처리합니다. 계속?')) return;
+    await window.CareSafeFB.writePath(`/custom_entries/${_dsCurrentCat}/${eid}/status`, 'rejected');
+    await window.CareSafeFB.writePath(`/custom_entries/${_dsCurrentCat}/${eid}/reviewedAt`, Date.now());
+    renderDataset(_dsCurrentCat);
+  }
+});
 
 function render() {
   const state = CareSafe.load();

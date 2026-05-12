@@ -87,6 +87,16 @@
         ".read": "auth != null && (auth.uid == $uid || root.child('admins').child(auth.uid).val() == true)",
         ".write": "auth != null && auth.uid == $uid"
       }
+    },
+
+    "custom_entries": {
+      ".read": "auth != null",
+      "$category": {
+        "$entryId": {
+          ".write": "auth != null && (!data.exists() || data.child('addedBy').val() == auth.uid || root.child('admins').child(auth.uid).val() == true)",
+          ".validate": "newData.hasChild('name') && newData.hasChild('addedBy') && newData.hasChild('status')"
+        }
+      }
     }
   }
 }
