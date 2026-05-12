@@ -94,9 +94,10 @@
         <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="toggleToast" checked> 활성</label>
       </div>
       <div class="set-row">
-        <span class="k">브라우저 푸시 (v1.0+)</span>
-        <span class="v warn">개발 예정</span>
+        <span class="k">브라우저 푸시 (FCM)</span>
+        <button class="btn small" id="pushEnableBtn">🔔 알림 받기</button>
       </div>
+      <div id="pushStatus" style="display:none; margin-top:8px; padding:8px 12px; border-radius:8px; font-size:12px; line-height:1.5"></div>
     </div>
 
     <div class="card">
@@ -245,6 +246,39 @@ document.getElementById('seniorList').addEventListener('click', (ev) => {
   const btn = ev.target.closest('.del-senior[data-uid]');
   if (!btn) return;
   deleteSenior(btn.dataset.uid, btn.dataset.name || '');
+});
+
+// P2-2: FCM 웹 푸시 활성화
+document.getElementById('pushEnableBtn')?.addEventListener('click', async () => {
+  const status = document.getElementById('pushStatus');
+  const showStatus = (msg, kind) => {
+    status.textContent = msg;
+    status.style.display = 'block';
+    if (kind === 'ok') {
+      status.style.background = '#F0FDF4';
+      status.style.borderColor = '#BBF7D0';
+      status.style.color = '#166534';
+    } else if (kind === 'warn') {
+      status.style.background = '#FEF3C7';
+      status.style.borderColor = '#FCD34D';
+      status.style.color = '#92400E';
+    } else {
+      status.style.background = '#FEF2F2';
+      status.style.borderColor = '#FECACA';
+      status.style.color = '#991B1B';
+    }
+  };
+  if (!window.CareSafeFB?.registerPushToken) {
+    showStatus('Firebase 모드(?mode=firebase)에서만 푸시 등록 가능합니다.', 'warn');
+    return;
+  }
+  showStatus('⏳ 권한 요청 + 토큰 발급 중...', 'warn');
+  const result = await window.CareSafeFB.registerPushToken();
+  if (result.ok) {
+    showStatus(`✅ 푸시 알림 활성화 완료. 백엔드(Cloud Function)가 배포되면 자동으로 받습니다.\n토큰: ${result.token.slice(0, 30)}...`, 'ok');
+  } else {
+    showStatus(`❌ 등록 실패: ${result.reason}`, 'err');
+  }
 });
 
 CareSafe.subscribe(() => render());

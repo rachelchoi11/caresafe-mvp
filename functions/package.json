@@ -1,0 +1,11 @@
+{
+  "name": "caresafe-functions",
+  "description": "CareSafe v0.2 — Cloud Functions for FCM push send on alert.",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.0.0"
+  },
+  "private": true
+}

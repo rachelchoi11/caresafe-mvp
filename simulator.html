@@ -128,7 +128,7 @@
       </div>
       <div class="tier-toggle">
         <button id="tierBasic" class="active" onclick="setTier('basic')">보급형 (1:1)</button>
-        <button id="tierPremium" onclick="setTier('premium')">고급형 <span class="badge">v1.5</span></button>
+        <button id="tierPremium" onclick="setTier('premium')">고급형 (WiFi 센싱)</button>
       </div>
       <p class="muted" id="tierDesc" style="margin-top:10px; font-size:13px; line-height:1.5">
         보호자 앱 + SOS 버튼 + 응급정보 카드 + 대응가이드 + 생활안전 체크리스트. 9~15만 원대 1:1 패키지.
@@ -145,6 +145,9 @@
 
     <!-- 시니어 복약 알림 (스케줄 시간 도달 시 자동 표시) -->
     <div id="medAlertsHost"></div>
+    <div id="medAlertsNote" style="display:none; background:#F0FDF4; border:1px solid #BBF7D0; padding:8px 12px; border-radius:8px; font-size:11px; color:#166534; margin-bottom:12px">
+      💊 시니어 자가 체크(<strong>먹었어요</strong>) 기반. 자동 약통·무게 센서는 v1.5 로드맵 (외부 H/W 조달).
+    </div>
 
     <!-- SOS는 모든 티어 공통 — 짧게(1초+)=도움 요청, 길게(3초+)=위급 -->
     <div class="card">
@@ -184,9 +187,11 @@
       <div class="card">
         <h2>운영 측 이벤트 트리거 (시연용)</h2>
         <p class="muted" style="margin-bottom:10px; font-size:13px">
-          시연 시 보호자 화면에 어떻게 보이는지 확인용. 실제 운영에선 IoT/AI가 자동 감지·발생. <strong>시니어가 직접 누르는 버튼은 SOS 하나뿐입니다.</strong>
+          시연 시 보호자 화면에 어떻게 보이는지 확인용. 실제 운영에선 IoT/외부 H/W가 자동 감지·발생.
+          <strong>시니어가 직접 누르는 버튼은 SOS 하나뿐입니다.</strong>
         </p>
         <div class="stack">
+          <button class="btn block" style="background:#EF4444" onclick="trigger('fall')">⚠️ 낙상 의심 신호 (외부 WiFi 센싱 H/W 가정)</button>
           <button class="btn block" style="background:#F59E0B" onclick="trigger('medication')">💊 복약 체크 누락 (운영 알림)</button>
           <button class="btn block ghost" onclick="trigger('battery')">🔋 기기 배터리 부족</button>
           <button class="btn block ghost" onclick="trigger('no_signal')">🌙 24시간 무소식 (보호자 안부 권유)</button>
@@ -205,8 +210,9 @@
     <!-- ===== 고급형 영역 ===== -->
     <div id="premiumSection" style="display:none">
       <div class="v15-label">
-        ⚙️ <strong>v1.5 시뮬레이션 라벨</strong> — 메인 허브·센싱 노드·낙상 의심 알고리즘은 v1.5 로드맵 기능.
-        이 영역은 사업계획서 ‘고급형 패키지’ 시연용. MVP 단계에선 알고리즘 검증·오탐률 측정이 우선.
+        📡 <strong>외부 H/W 신호 수신 인터페이스 (v0.2)</strong> — 메인 허브·센싱 노드·낙상 의심 신호는
+        외부 조달 WiFi 센싱 하드웨어가 제공하고, CareSafe 웹앱은 이 신호를 수신·표시·보호자 알림한다.
+        본 화면은 H/W 신호의 모킹 시연용. 자동 119 신고 ❌ · 보호자 확인 단계 필수.
       </div>
 
       <div class="card">
@@ -399,15 +405,15 @@ sosBtn.addEventListener('touchcancel', sosEnd);
 // ===== 티어 토글 =====
 const TIER_TEXT = {
   basic: '보호자 앱 + SOS 버튼 + 응급정보 카드 + 대응가이드 + 생활안전 체크리스트. 9~15만 원대 1:1 패키지.',
-  premium: '보급형 구성 + 메인 허브 1대 + 센싱 노드 3대 + 낙상 의심 감지 + 위험 알림 리포트. 39만 원대 (v1.5 로드맵).',
+  premium: '보급형 구성 + 메인 허브 1대 + WiFi 센싱 노드 3대 + 낙상 의심 신호 수신 + 위험 알림 리포트. 39만 원대 (외부 H/W 조달).',
 };
 function setTier(tier) {
   document.getElementById('tierBasic').classList.toggle('active', tier === 'basic');
   document.getElementById('tierPremium').classList.toggle('active', tier === 'premium');
   document.getElementById('basicSection').style.display = tier === 'basic' ? 'block' : 'none';
   document.getElementById('premiumSection').style.display = tier === 'premium' ? 'block' : 'none';
-  document.getElementById('tierTag').textContent = tier === 'basic' ? '보급형 1:1' : '고급형 (v1.5)';
-  document.getElementById('tierSub').textContent = tier === 'basic' ? '보급형 패키지 시연' : '고급형 패키지 시연 (v1.5 라벨)';
+  document.getElementById('tierTag').textContent = tier === 'basic' ? '보급형 1:1' : '고급형 (WiFi 센싱)';
+  document.getElementById('tierSub').textContent = tier === 'basic' ? '보급형 패키지 시연' : '고급형 패키지 시연 (WiFi 센싱 H/W 가정)';
   document.getElementById('tierDesc').textContent = TIER_TEXT[tier];
   localStorage.setItem('caresafe:simTier', tier);
 }
@@ -422,15 +428,18 @@ CareSafe.subscribe(() => { populateSelect(); renderMedAlerts(); });
 // 1분마다 체크. 시간 되면 큰 카드 + '먹었어요' 버튼.
 function renderMedAlerts() {
   const host = document.getElementById('medAlertsHost');
+  const note = document.getElementById('medAlertsNote');
   if (!host) return;
   const state = CareSafe.load();
   const senior = state.seniors.find(s => s.id === state.activeUid);
   if (!senior || !window.CareSafeMeds) {
     host.innerHTML = '';
+    if (note) note.style.display = 'none';
     return;
   }
   const pending = window.CareSafeMeds.pendingSlots(senior);
   const todayAll = window.CareSafeMeds.todaySlots(senior);
+  if (note) note.style.display = (pending.length > 0 || todayAll.length > 0) ? 'block' : 'none';
 
   let html = '';
   if (pending.length > 0) {

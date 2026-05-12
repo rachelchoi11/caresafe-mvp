@@ -284,7 +284,12 @@ function installFirebaseAdapter(FB) {
 
     async addAlert(alert) {
       const id = "a" + Date.now() + Math.floor(Math.random() * 1000);
-      const full = Object.assign({ id, time: Date.now() }, alert);
+      // 알림 우선순위 자동 라벨링 (app.js와 동일 규칙)
+      const priority = alert.priority ||
+        (alert.level === "danger" && (alert.type === "sos" || alert.type === "fall") ? "P0" :
+         alert.level === "danger" ? "P1" :
+         alert.level === "warn" ? "P2" : "P3");
+      const full = Object.assign({ id, time: Date.now() }, alert, { priority });
       await FB.writePath(`/alerts/${id}`, full);
 
       const senior = cache.seniors.find((s) => s.id === full.uid);

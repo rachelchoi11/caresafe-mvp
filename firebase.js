@@ -17,6 +17,9 @@ import {
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import {
+  getMessaging, getToken, onMessage, isSupported as isMessagingSupported,
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-messaging.js";
 
 // Firebase 콘솔에서 발급받은 config — apiKey는 식별자(비밀 아님).
 // 실제 보안은 RTDB ‘규칙’으로 통제 (학습 가이드 6장 참조).
@@ -98,6 +101,73 @@ function observeAuth(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
+// ----- FCM Web Push -----
+// VAPID public key — Firebase Console > Project Settings > Cloud Messaging > Web Push 인증서.
+// 사용자가 발급받아 여기에 붙여넣어야 동작.
+const VAPID_KEY = "REPLACE_WITH_VAPID_PUBLIC_KEY";
+
+// 푸시 권한 요청 + 토큰 발급. 성공 시 RTDB /push_tokens/{uid}: token 저장.
+async function registerPushToken() {
+  if (!(await isMessagingSupported())) {
+    return { ok: false, reason: "이 브라우저는 푸시 알림을 지원하지 않습니다 (iOS Safari 등)." };
+  }
+  if (!auth.currentUser) {
+    return { ok: false, reason: "로그인이 필요합니다." };
+  }
+  if (VAPID_KEY === "REPLACE_WITH_VAPID_PUBLIC_KEY") {
+    return { ok: false, reason: "VAPID 키 미설정 — Firebase Console에서 발급 후 firebase.js에 붙여넣으세요." };
+  }
+  try {
+    // Service Worker 등록 (FCM SDK 자동 등록도 가능하지만 명시적 등록이 안전)
+    const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      return { ok: false, reason: "푸시 권한이 거부되었습니다 — 브라우저 설정에서 허용 필요." };
+    }
+    const messaging = getMessaging(app);
+    const token = await getToken(messaging, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: swReg,
+    });
+    if (!token) {
+      return { ok: false, reason: "토큰 발급 실패 — 권한·인증서 재확인." };
+    }
+    // RTDB에 토큰 저장 — 백엔드가 이 토큰으로 push.send 호출
+    await writePath(`/push_tokens/${auth.currentUser.uid}/${token}`, {
+      createdAt: Date.now(),
+      userAgent: navigator.userAgent.slice(0, 200),
+    });
+    // foreground 메시지도 OS 알림으로 표시 (페이지 열려있을 때 SW가 자동 표시 안 함)
+    onMessage(messaging, (payload) => {
+      console.log("[FCM] foreground 메시지:", payload);
+      const notif = payload.notification || payload.data || {};
+      if (Notification.permission === "granted") {
+        new Notification(notif.title || "CareSafe 알림", {
+          body: notif.body || "새 알림",
+          icon: "/favicon.ico",
+          tag: payload.data?.alertId,
+        });
+      }
+    });
+    return { ok: true, token };
+  } catch (e) {
+    return { ok: false, reason: e?.message || String(e) };
+  }
+}
+
+// 토큰 비활성화 (사용자가 푸시 거부할 때) — 현재 기기 토큰만 제거.
+// Codex 검토 반영: 멀티디바이스 사용자가 한 기기만 해제할 수 있어야 함.
+async function unregisterPushToken(token) {
+  if (!auth.currentUser) return;
+  if (!token) {
+    console.warn("[FCM] unregisterPushToken: 토큰 인자 필요");
+    return;
+  }
+  try {
+    await writePath(`/push_tokens/${auth.currentUser.uid}/${token}`, null);
+  } catch (e) { console.warn("[FCM] 토큰 제거 실패:", e); }
+}
+
 // 콘솔에서 수동 테스트 가능하도록 전역 노출.
 // 운영 단계엔 제거하거나 디버그 플래그로 감쌀 것.
 window.CareSafeFB = {
@@ -105,6 +175,7 @@ window.CareSafeFB = {
   writePath, readPath, pushChild, watchPath, reserveOnce,
   serverTimestamp,
   signInGoogle, signOutUser, observeAuth,
+  registerPushToken, unregisterPushToken,
 };
 
 console.log("[CareSafe FB] Firebase 초기화 완료 ·", firebaseConfig.projectId);

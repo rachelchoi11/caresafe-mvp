@@ -67,6 +67,16 @@
   .alert-row .meta .pill-sm.danger { background:#FEE2E2; color:#991B1B; }
   .alert-row .meta .pill-sm.warn { background:#FEF3C7; color:#92400E; }
   .alert-row .meta .pill-sm.ok { background:#DCFCE7; color:#166534; }
+  /* 우선순위 핀 (AI P1 — 알림 우선순위 라벨링) */
+  .pri-pin {
+    display:inline-block; padding:1px 6px; border-radius:4px;
+    font-size:10px; font-weight:800; letter-spacing:0.3px;
+    margin-right:6px; vertical-align:middle;
+  }
+  .pri-pin.P0 { background:#7F1D1D; color:#FEE2E2; }
+  .pri-pin.P1 { background:#DC2626; color:white; }
+  .pri-pin.P2 { background:#F59E0B; color:#78350F; }
+  .pri-pin.P3 { background:#E2E8F0; color:#475569; }
   .alert-row .ack {
     background:#F1F5F9; color:#475569; padding:2px 6px; border-radius:999px;
     font-size:10px; font-weight:700;
@@ -173,6 +183,14 @@
         <button class="chip" data-ack="acked">확인 완료</button>
         <button class="chip no-ack" data-ack="no_ack">미확인 (24h+)</button>
       </div>
+      <div class="filter-row">
+        <span class="label">우선순위</span>
+        <button class="chip active" data-pri="all">전체</button>
+        <button class="chip" data-pri="P0">P0 생명위급</button>
+        <button class="chip" data-pri="P1">P1 위급</button>
+        <button class="chip" data-pri="P2">P2 주의</button>
+        <button class="chip" data-pri="P3">P3 정보</button>
+      </div>
     </div>
 
     <div id="alertGroups"></div>
@@ -219,6 +237,7 @@ const filter = {
   level: 'all',   // 'all' | 'danger' | 'warn' | 'ok'
   range: 'all',   // 'all' | 'today' | 'week' | 'month'
   ack: 'all',     // 'all' | 'acked' | 'no_ack'
+  pri: 'all',     // 'all' | 'P0' | 'P1' | 'P2' | 'P3'
 };
 
 function fmtDay(ts) {
@@ -263,6 +282,10 @@ function applyFilters(alerts) {
   return alerts.filter(a => {
     if (filter.uid !== 'all' && a.uid !== filter.uid) return false;
     if (filter.level !== 'all' && a.level !== filter.level) return false;
+    if (filter.pri !== 'all') {
+      const p = (window.CareSafe?.derivePriority || (x => x.priority || 'P3'))(a);
+      if (p !== filter.pri) return false;
+    }
     if (a.time < rangeStart) return false;
     if (filter.ack === 'acked' && !a.ack_ts) return false;
     if (filter.ack === 'no_ack' && (a.ack_ts || (now - a.time) <= 24*3600*1000)) return false;
@@ -324,6 +347,8 @@ function render() {
       // Codex P2 #6: XSS escape
       const safeLevel = ['ok','warn','danger'].includes(a.level) ? a.level : 'ok';
       const safeType = ICONS[a.type] || '🔔';
+      // 우선순위 핀 — 옛 데이터(priority 없음)는 type+level로 즉석 계산
+      const safePri = (window.CareSafe?.derivePriority || (x => x.priority || 'P3'))(a);
       const locHtml = a.location && a.location.address
         ? `<div class="meta" style="margin-top:2px"><a href="https://maps.google.com/?q=${encodeURIComponent(a.location.lat)},${encodeURIComponent(a.location.lng)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none;color:#0F766E;font-size:12px">📍 ${E(a.location.address)}</a></div>`
         : '';
@@ -331,7 +356,7 @@ function render() {
         <div class="alert-row ${safeLevel} ${noAck ? 'no-ack' : ''}" data-alert-id="${E(a.id)}">
           <div class="ic">${safeType}</div>
           <div class="body">
-            <div class="text">${E(a.text)}</div>
+            <div class="text"><span class="pri-pin ${safePri}">${safePri}</span>${E(a.text)}</div>
             <div class="meta">
               <span class="pill-sm ${safeLevel}">${LEVEL_TEXT[safeLevel]}</span>
               ${senior ? `<span>👵 ${E(senior.name)}</span>` : ''}
@@ -374,6 +399,13 @@ document.querySelectorAll('.chip[data-ack]').forEach(c => {
     document.querySelectorAll('.chip[data-ack]').forEach(x => x.classList.remove('active'));
     c.classList.add('active');
     filter.ack = c.dataset.ack; render();
+  });
+});
+document.querySelectorAll('.chip[data-pri]').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip[data-pri]').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    filter.pri = c.dataset.pri; render();
   });
 });
 

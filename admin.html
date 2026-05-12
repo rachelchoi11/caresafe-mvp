@@ -27,6 +27,17 @@
   .kpi.measuring .n { color:#94A3B8; font-size:18px; }
   .kpi-explain { font-size:11px; color:#94A3B8; margin-top:4px; }
 
+  /* 우선순위 핀 (AI P1) */
+  .pri-pin {
+    display:inline-block; padding:1px 6px; border-radius:4px;
+    font-size:10px; font-weight:800; letter-spacing:0.3px;
+    margin-right:6px; vertical-align:middle;
+  }
+  .pri-pin.P0 { background:#7F1D1D; color:#FEE2E2; }
+  .pri-pin.P1 { background:#DC2626; color:white; }
+  .pri-pin.P2 { background:#F59E0B; color:#78350F; }
+  .pri-pin.P3 { background:#E2E8F0; color:#475569; }
+
   /* Codex P2 #8: 관리자 권한 게이트 */
   .admin-gate {
     position:fixed; inset:0; background:#F8FAFC;
@@ -391,11 +402,12 @@ function render() {
     const senior = state.seniors.find(x => x.id === a.uid);
     const safeLevel = ['ok','warn','danger'].includes(a.level) ? a.level : 'ok';
     const safeIcon = ICONS[a.type] || '🔔';
+    const safePri = (window.CareSafe?.derivePriority || (x => x.priority || 'P3'))(a);
     return `
       <li class="list-item ${safeLevel}">
         <div class="icon">${safeIcon}</div>
         <div class="body">
-          <div class="t">${E(a.text)}</div>
+          <div class="t"><span class="pri-pin ${safePri}">${safePri}</span>${E(a.text)}</div>
           <div class="s">${senior ? E(senior.name) + ' · ' : ''}${E(CareSafe.fmtTime(a.time))}</div>
         </div>
       </li>`;
@@ -435,12 +447,13 @@ function renderAlertHistory() {
     const noAck = !a.ack_ts && (now - a.time) > 24 * 3600 * 1000;
     const safeLevel = ['ok','warn','danger'].includes(a.level) ? a.level : 'ok';
     const safeIcon = ICONS[a.type] || '';
+    const safePri = (window.CareSafe?.derivePriority || (x => x.priority || 'P3'))(a);
     return `
       <tr class="${noAck ? 'no-ack-row' : ''}">
         <td>${E(CareSafe.fmtTime(a.time))}</td>
         <td>${E(senior?.name || '—')}</td>
         <td>${safeIcon} ${E(a.type)}</td>
-        <td><span class="pill ${safeLevel}">${LEVEL_TEXT[safeLevel]}</span></td>
+        <td><span class="pri-pin ${safePri}">${safePri}</span> <span class="pill ${safeLevel}">${LEVEL_TEXT[safeLevel]}</span></td>
         <td>${E(a.text)}</td>
         <td>${a.ack_ts ? '✓ ' + E(CareSafe.fmtTime(a.ack_ts)) : (noAck ? '⚠️ 미확인' : '미확인')}</td>
       </tr>`;

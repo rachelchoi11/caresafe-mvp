@@ -216,9 +216,27 @@
   function broadcast(msg) { if (bus) bus.postMessage(msg); }
 
   // ---------- mutation helpers ----------
+  // 알림 우선순위 자동 라벨링 (AI P1) — type+level → P0~P3
+  function _autoPriority(type, level) {
+    // P0: 생명 위급. 즉시 보호자 응답 + 119 검토
+    if (level === 'danger' && (type === 'sos' || type === 'fall')) return 'P0';
+    // P1: 위급. 즉시 확인
+    if (level === 'danger') return 'P1';
+    // P2: 주의. 보호자 안부·확인 권유
+    if (level === 'warn') return 'P2';
+    // P3: 정보성. 모니터링용
+    return 'P3';
+  }
+  // UI 렌더 fallback — alert에 priority가 없으면 즉석 계산 (Codex 검토 반영)
+  function derivePriority(alert) {
+    if (!alert) return 'P3';
+    if (['P0','P1','P2','P3'].includes(alert.priority)) return alert.priority;
+    return _autoPriority(alert.type, alert.level);
+  }
   function addAlert(alert) {
     const state = load();
-    const full = Object.assign({ id: 'a' + Date.now(), time: Date.now() }, alert);
+    const priority = alert.priority || _autoPriority(alert.type, alert.level);
+    const full = Object.assign({ id: 'a' + Date.now(), time: Date.now() }, alert, { priority });
     state.alerts.unshift(full);
     const senior = state.seniors.find(s => s.id === full.uid);
     if (senior) {
@@ -315,7 +333,7 @@
     addAlert, setStatus, setActive,
     saveSenior, deleteSenior,
     fmtTime, fmtClock, toast,
-    esc, escAttr,
+    esc, escAttr, derivePriority,
     _subs: subs, _fireLocal: fireLocal,
   };
 })();

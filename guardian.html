@@ -7,6 +7,56 @@
 <title>보호자 · CareSafe</title>
 <link rel="stylesheet" href="styles.css">
 <style>
+  /* 1초 룰 — hero sticky + 카드 collapse */
+  .status-hero {
+    position:sticky; top:0; z-index:50;
+    background:linear-gradient(135deg,#005F73 0%,#0A9396 100%);
+    margin-left:-20px; margin-right:-20px; padding-left:20px; padding-right:20px;
+  }
+  .card-collapse {
+    background:white; border-radius:12px; margin-bottom:12px; overflow:hidden;
+    border:1px solid #E2E8F0;
+  }
+  .card-collapse > summary {
+    list-style:none; cursor:pointer; padding:14px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+    font-weight:700; font-size:16px; color:#0F172A;
+    user-select:none;
+  }
+  .card-collapse > summary::-webkit-details-marker { display:none; }
+  .card-collapse > summary::after {
+    content:'▾'; font-size:12px; color:#94A3B8;
+    transition:transform 0.15s;
+  }
+  .card-collapse[open] > summary::after { transform:rotate(180deg); }
+  .card-collapse > summary .sum-tag {
+    font-size:11px; font-weight:600; color:#64748B;
+    background:#F1F5F9; padding:2px 8px; border-radius:999px; margin-left:8px;
+  }
+  .card-collapse .cc-body {
+    padding:0 16px 16px;
+  }
+  /* 헤더 119 단축 버튼 */
+  .header-119 {
+    background:#DC2626; color:white; border:none;
+    padding:6px 12px; border-radius:8px;
+    font-size:13px; font-weight:700; text-decoration:none;
+    display:inline-flex; align-items:center; gap:4px;
+    cursor:pointer;
+  }
+  .header-119:hover { background:#991B1B; }
+
+  /* 우선순위 핀 (AI P1 — 알림 우선순위 라벨링) */
+  .pri-pin {
+    display:inline-block; padding:1px 6px; border-radius:4px;
+    font-size:10px; font-weight:800; letter-spacing:0.3px;
+    margin-right:6px; vertical-align:middle;
+  }
+  .pri-pin.P0 { background:#7F1D1D; color:#FEE2E2; }
+  .pri-pin.P1 { background:#DC2626; color:white; }
+  .pri-pin.P2 { background:#F59E0B; color:#78350F; }
+  .pri-pin.P3 { background:#E2E8F0; color:#475569; }
+
   /* 대응가이드 모달 */
   .modal-overlay {
     position:fixed; inset:0; background:rgba(15,23,42,0.6);
@@ -220,6 +270,7 @@
       </div>
     </div>
     <div class="right">
+      <a href="tel:119" class="header-119" aria-label="119 응급 전화">🚨 119</a>
       <span class="pill primary"><span class="dot pulse-dot"></span> 실시간</span>
     </div>
   </header>
@@ -265,59 +316,64 @@
       <button class="btn ghost block" onclick="openSeniorForm(null)" style="margin-top:10px">➕ 부모님 추가</button>
     </div>
 
-    <div class="card">
-      <h2>긴급 연락</h2>
-      <div class="stack">
-        <a class="btn block" href="tel:119" style="text-decoration:none; display:flex; align-items:center; justify-content:center">🚨 119 전화 걸기</a>
-        <button class="btn ghost block" id="callDoctor">☎️ 주치의 연결</button>
+    <details class="card-collapse">
+      <summary>📞 긴급 연락 · 주치의</summary>
+      <div class="cc-body">
+        <div class="stack">
+          <a class="btn block" href="tel:119" style="text-decoration:none; display:flex; align-items:center; justify-content:center">🚨 119 전화 걸기</a>
+          <button class="btn ghost block" id="callDoctor">☎️ 주치의 연결</button>
+        </div>
       </div>
-    </div>
+    </details>
 
-    <div class="card">
-      <div class="title-row">
-        <h2>부모님께 안부 보내기</h2>
-        <span class="muted" id="msgContextBadge">상태 확인 중…</span>
+    <details class="card-collapse">
+      <summary>💬 부모님께 안부 보내기 <span class="sum-tag" id="msgContextBadge">상태 확인 중…</span></summary>
+      <div class="cc-body">
+        <p class="muted" style="font-size:13px; margin-bottom:10px">
+          AI가 부모님 최근 상태에 맞는 메시지 3개를 추천. 편집해서 카톡·문자로 직접 전송.
+        </p>
+        <button class="btn block" id="openMsgBtn">💬 안부 톡 작성</button>
       </div>
-      <p class="muted" style="font-size:13px; margin-bottom:10px">
-        AI가 부모님 최근 상태에 맞는 메시지 3개를 추천. 편집해서 카톡·문자로 직접 전송.
-      </p>
-      <button class="btn block" id="openMsgBtn">💬 안부 톡 작성</button>
-    </div>
+    </details>
 
-    <div class="card" id="emergencyCard">
-      <div class="title-row">
-        <h2>응급정보 카드 (QR)</h2>
-        <span class="muted" id="emergencyTag">미발급</span>
+    <details class="card-collapse" id="emergencyCard">
+      <summary>🆔 응급정보 카드 (QR/NFC) <span class="sum-tag" id="emergencyTag">미발급</span></summary>
+      <div class="cc-body">
+        <div id="emergencyPreview" class="stack" style="font-size:14px"></div>
+        <div class="stack" style="margin-top:12px">
+          <button class="btn block" id="showQrBtn">🔳 QR 카드 보기</button>
+          <button class="btn block" id="nfcWriteBtn" style="background:#0F766E">📱 NFC 카드에 굽기 (Android Chrome)</button>
+          <a class="btn ghost block" id="openCardLink" target="_blank" rel="noopener" style="text-decoration:none; display:flex; align-items:center; justify-content:center">↗ 응급카드 페이지 열기</a>
+          <button class="btn ghost block" onclick="openSeniorForm(CareSafe.load().activeUid)">✏️ 응급정보 편집</button>
+          <button class="btn ghost block" id="revokeQrBtn" style="color:#991B1B">🔄 QR 토큰 재발급 (분실·노출 시)</button>
+        </div>
+        <div id="nfcStatus" style="display:none; margin-top:8px; padding:10px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; font-size:12px; color:#166534"></div>
+        <div id="qrBox" style="display:none; text-align:center; padding:16px; background:#F8FAFC; border-radius:10px; margin-top:12px">
+          <div id="qrcode" style="display:inline-block; padding:12px; background:white; border-radius:8px"></div>
+          <div class="muted" style="margin-top:10px; font-size:12px; word-break:break-all" id="qrUrl"></div>
+          <button class="btn ghost" onclick="window.print()" style="margin-top:10px">🖨 인쇄</button>
+        </div>
       </div>
-      <div id="emergencyPreview" class="stack" style="font-size:14px"></div>
-      <div class="stack" style="margin-top:12px">
-        <button class="btn block" id="showQrBtn">🔳 QR 카드 보기</button>
-        <a class="btn ghost block" id="openCardLink" target="_blank" rel="noopener" style="text-decoration:none; display:flex; align-items:center; justify-content:center">↗ 응급카드 페이지 열기</a>
-        <button class="btn ghost block" onclick="openSeniorForm(CareSafe.load().activeUid)">✏️ 응급정보 편집</button>
-      </div>
-      <div id="qrBox" style="display:none; text-align:center; padding:16px; background:#F8FAFC; border-radius:10px; margin-top:12px">
-        <div id="qrcode" style="display:inline-block; padding:12px; background:white; border-radius:8px"></div>
-        <div class="muted" style="margin-top:10px; font-size:12px; word-break:break-all" id="qrUrl"></div>
-        <button class="btn ghost" onclick="window.print()" style="margin-top:10px">🖨 인쇄</button>
-      </div>
-    </div>
+    </details>
 
-    <div class="card">
-      <div class="title-row">
-        <h2>오늘 복약 현황</h2>
-        <span class="muted" id="medsToday">— / —</span>
+    <details class="card-collapse">
+      <summary>💊 오늘 복약 현황 <span class="sum-tag" id="medsToday">— / —</span></summary>
+      <div class="cc-body">
+        <div style="background:#FEF3C7; border:1px solid #FCD34D; padding:8px 12px; border-radius:8px; font-size:12px; line-height:1.5; color:#92400E; margin-bottom:10px">
+          ℹ️ 현재 시니어의 자가 체크(<strong>먹었어요</strong> 버튼) 기반.
+          스마트 약통·무게 센서·AI 음성 안부 체크인 등 <strong>자동 모니터링은 v1.5 로드맵</strong> (외부 H/W 조달).
+        </div>
+        <div id="medsList"></div>
       </div>
-      <div id="medsList"></div>
-    </div>
+    </details>
 
-    <div class="card">
-      <div class="title-row">
-        <h2>이번 주 안전 체크</h2>
-        <span class="muted" id="checklistCount">0 / 0</span>
+    <details class="card-collapse">
+      <summary>✅ 이번 주 안전 체크 <span class="sum-tag" id="checklistCount">0 / 0</span></summary>
+      <div class="cc-body">
+        <div class="checklist-progress"><div id="checklistBar" style="width:0%"></div></div>
+        <div id="checklistBody"></div>
       </div>
-      <div class="checklist-progress"><div id="checklistBar" style="width:0%"></div></div>
-      <div id="checklistBody"></div>
-    </div>
+    </details>
   </section>
 
   <!-- 시니어 등록·편집 모달 (풀스크린) -->
@@ -583,11 +639,12 @@ function render() {
     // a.level은 enum — pill class에 안전. a.id는 임의 문자열 가능 — escAttr 필요.
     const safeLevel = ['ok','warn','danger'].includes(a.level) ? a.level : 'ok';
     const safeType = ICONS[a.type] || '🔔';
+    const safePri = (window.CareSafe?.derivePriority || (x => x.priority || 'P3'))(a);
     return `
     <li class="list-item alert-clickable ${safeLevel}" data-alert-id="${E(a.id)}">
       <div class="icon">${safeType}</div>
       <div class="body">
-        <div class="t">${E(a.text)}</div>
+        <div class="t"><span class="pri-pin ${safePri}">${safePri}</span>${E(a.text)}</div>
         <div class="s">${CareSafe.fmtTime(a.time)} · <span class="pill ${safeLevel}">${LEVEL_TEXT[safeLevel]}</span></div>
         ${locHtml}
       </div>
@@ -1551,6 +1608,114 @@ document.getElementById('showQrBtn').addEventListener('click', () => {
     drawQr(url);
   } else {
     box.style.display = 'none';
+  }
+});
+
+// P2-1: NFC 카드 굽기 (Web NFC API · Android Chrome 한정)
+// NTAG216 등 NFC 카드에 응급카드 URL을 NDEF URL 레코드로 기록.
+// 잠금 화면 태깅 시에도 브라우저가 자동으로 emergency.html 열림 (이게 핵심 가치).
+document.getElementById('nfcWriteBtn').addEventListener('click', async () => {
+  const status = document.getElementById('nfcStatus');
+  const showStatus = (msg, isError) => {
+    status.textContent = msg;
+    status.style.display = 'block';
+    if (isError) {
+      status.style.background = '#FEF2F2';
+      status.style.borderColor = '#FECACA';
+      status.style.color = '#991B1B';
+    } else {
+      status.style.background = '#F0FDF4';
+      status.style.borderColor = '#BBF7D0';
+      status.style.color = '#166534';
+    }
+  };
+
+  if (!('NDEFReader' in window)) {
+    showStatus(
+      '⚠️ 이 기기는 Web NFC API를 지원하지 않습니다.\n' +
+      '· iOS Safari: 미지원 (NFC 쓰기 SDK 별도 앱 필요)\n' +
+      '· Android Chrome 89+: 지원\n\n' +
+      '대안: NFC 발급 서비스 업체에 QR 카드 URL을 보내 위탁 발급 (1장 1,500~3,000원).',
+      true
+    );
+    return;
+  }
+
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid);
+  if (!senior?.qrToken) {
+    showStatus('⚠️ 응급카드 토큰이 발급되지 않은 시니어입니다. 시니어 등록 후 다시 시도하세요.', true);
+    return;
+  }
+
+  const url = new URL('emergency.html', location.href);
+  url.searchParams.set('token', senior.qrToken);
+  const cardUrl = url.href;
+
+  try {
+    showStatus(`📱 NFC 카드를 폰 뒷면(NFC 안테나)에 가져다 대세요... (취소: 페이지 이탈)`, false);
+    const ndef = new NDEFReader();
+    await ndef.write({
+      records: [{ recordType: 'url', data: cardUrl }],
+    });
+    // Codex 검토 반영: 성공 UI에 토큰 전체 노출 ❌. 카드 식별용 마지막 4자만 표시.
+    const tokenTail = senior.qrToken.slice(-4);
+    showStatus(`✅ NFC 카드 발급 완료 — ${senior.name} 어르신 응급카드 (토큰 …${tokenTail})`, false);
+    if (window.CareSafe?.toast) CareSafe.toast('NFC 카드 발급 완료', 'ok');
+  } catch (e) {
+    const code = e?.name || '';
+    let hint = e?.message || '알 수 없는 오류';
+    if (code === 'NotAllowedError') hint = '권한 거부됨 — 브라우저 설정에서 NFC 권한 허용 필요.';
+    if (code === 'NotSupportedError') hint = '이 기기는 NFC 쓰기를 지원하지 않습니다.';
+    if (code === 'NotReadableError') hint = 'NFC 카드 인식 실패 — 카드를 다시 정렬해주세요.';
+    showStatus(`❌ 발급 실패: ${hint}`, true);
+  }
+});
+
+// P1-1: QR 토큰 재발급 (분실·노출 시 기존 토큰 무효화)
+document.getElementById('revokeQrBtn').addEventListener('click', async () => {
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid);
+  if (!senior) return alert('활성 시니어가 없습니다.');
+  const ok = confirm(
+    `[${senior.name}] 어르신의 QR 토큰을 재발급합니다.\n\n` +
+    `· 새 토큰이 즉시 발급되어 새 QR/NFC 카드가 작동합니다.\n` +
+    `· 기존 토큰은 백엔드(Firebase) 매핑 제거 후 만료됩니다.\n` +
+    `· 네트워크·권한 문제로 옛 매핑 제거가 실패하면 경고 표시 — 그땐 운영자가 Console에서 수동 정리 필요.\n` +
+    `· 새 QR 카드·NFC 카드 재발급(인쇄·NFC 굽기)을 잊지 마세요.\n\n` +
+    `계속할까요?`
+  );
+  if (!ok) return;
+  const oldToken = senior.qrToken;
+  const newToken = _sfRandomToken();
+  try {
+    // Codex 검토 반영: 원자성 회복 — 새 토큰 저장 먼저(성공 시 응급URL 즉시 유효),
+    // 옛 토큰 매핑 제거는 그 후에. 중간 실패 시 옛 URL은 잠시 살아있지만,
+    // 응급카드가 둘 다 깨지는 worst case 차단.
+    senior.qrToken = newToken;
+    await CareSafe.saveSenior(senior);
+    if (oldToken && window.CareSafeFB?.writePath) {
+      try { await window.CareSafeFB.writePath(`/qr_index/${oldToken}`, null); }
+      catch (e) {
+        console.warn('[QR revoke] 옛 토큰 매핑 제거 실패 — 운영자에게 통보 필요:', e);
+        if (window.CareSafe?.toast) {
+          CareSafe.toast('새 토큰 발급 OK · 옛 토큰 제거 실패 (수동 정리 필요)', 'warn');
+        }
+      }
+    }
+    if (window.CareSafe?.toast) CareSafe.toast(`QR 토큰 재발급 완료 — 새 QR 카드 인쇄·NFC 카드 재발급 필요`, 'ok');
+    // QR 박스 열려있으면 새 토큰으로 다시 그리기
+    const box = document.getElementById('qrBox');
+    if (box.style.display !== 'none') {
+      const url = new URL('emergency.html', location.href);
+      url.searchParams.set('token', newToken);
+      drawQr(url.href);
+      document.getElementById('qrUrl').textContent = url.href;
+      document.getElementById('showQrBtn').dataset.url = url.href;
+    }
+    render();
+  } catch (e) {
+    alert('재발급 실패: ' + (e?.message || e));
   }
 });
 
