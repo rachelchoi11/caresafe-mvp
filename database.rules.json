@@ -1,0 +1,55 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+
+    "seniors_public": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "seniors_private": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "seniors": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "alerts": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "activeUid": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "qr_index": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "ping": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "ai_cache": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "med_logs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
