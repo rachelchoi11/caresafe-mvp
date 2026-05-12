@@ -104,7 +104,7 @@ function observeAuth(callback) {
 // ----- FCM Web Push -----
 // VAPID public key — Firebase Console > Project Settings > Cloud Messaging > Web Push 인증서.
 // 사용자가 발급받아 여기에 붙여넣어야 동작.
-const VAPID_KEY = "REPLACE_WITH_VAPID_PUBLIC_KEY";
+const VAPID_KEY = "BMWH1Oyd678JBtNPqhQADe2XpFxbGv7lmgHqZN2s-FrCWHTWOlSE5aBikAfTn0P5RDQ38YWDYpMBQPf0tQSw8ig";
 
 // 푸시 권한 요청 + 토큰 발급. 성공 시 RTDB /push_tokens/{uid}: token 저장.
 async function registerPushToken() {
