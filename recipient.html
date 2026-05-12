@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>나의 안심 — CareSafe</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* 보호대상자 측 페이지 — 큰 글씨 · 한 화면 한 액션 (멘토 가이드) */
+
+  /* 인사 카드 */
+  .greeting {
+    background:linear-gradient(135deg,#0A9396 0%,#005F73 100%);
+    color:white; padding:24px 20px; border-radius:18px;
+    margin-bottom:18px;
+  }
+  .greeting .hello { font-size:18px; opacity:0.9; }
+  .greeting .who { font-size:28px; font-weight:800; margin-top:4px; line-height:1.2; }
+  .greeting .clock { font-size:16px; opacity:0.85; margin-top:8px; }
+
+  /* SOS 큰 버튼 — 화면의 핵심 액션 */
+  .big-sos {
+    width:100%;
+    background:#DC2626; color:white; border:none;
+    border-radius:24px; padding:48px 16px;
+    font-size:48px; font-weight:900;
+    cursor:pointer; font-family:inherit;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    box-shadow:0 8px 20px rgba(220,38,38,0.35);
+    transition:transform 0.1s, box-shadow 0.15s;
+    margin-bottom:14px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .big-sos:active, .big-sos.holding {
+    transform:scale(0.98);
+    box-shadow:0 0 0 14px rgba(220,38,38,0.2), 0 8px 20px rgba(220,38,38,0.35);
+  }
+  .big-sos .icon { font-size:72px; line-height:1; }
+  .big-sos .label { font-size:32px; letter-spacing:4px; }
+  .big-sos .sub { font-size:14px; opacity:0.85; font-weight:600; }
+
+  .sos-progress {
+    width:100%; margin:-4px 0 16px;
+  }
+  .sos-bar {
+    width:100%; height:14px; background:#F1F5F9; border-radius:999px;
+    overflow:hidden; position:relative;
+  }
+  .sos-bar > div {
+    height:100%; width:0%; background:#F59E0B; transition:width 0.05s linear;
+  }
+  .sos-bar > div.danger { background:#DC2626; }
+  .sos-bar-label {
+    margin-top:8px; font-size:14px; color:#64748B; text-align:center; font-weight:600;
+  }
+
+  /* 복약 카드 (큰 디스플레이) */
+  .med-card {
+    background:linear-gradient(135deg,#FEF3C7 0%,#FCD34D 100%);
+    border:2px solid #F59E0B; border-radius:18px;
+    padding:20px; margin-bottom:12px;
+    box-shadow:0 4px 12px rgba(245,158,11,0.25);
+  }
+  .med-card .ic-row { display:flex; gap:10px; align-items:center; margin-bottom:8px; }
+  .med-card .ic-row .ic { font-size:32px; }
+  .med-card .ic-row .label {
+    background:#DC2626; color:white; padding:4px 12px; border-radius:999px;
+    font-size:13px; font-weight:700;
+  }
+  .med-card .name { margin:6px 0 4px; color:#0F172A; font-size:26px; font-weight:800; }
+  .med-card .dose { color:#92400E; font-weight:700; font-size:18px; margin-bottom:6px; }
+  .med-card .when { color:#78350F; font-size:15px; margin-bottom:12px; }
+  .med-card .took-btn {
+    width:100%; padding:20px;
+    background:#16a34a; color:white; border:none;
+    border-radius:14px; font-size:22px; font-weight:800;
+    cursor:pointer; font-family:inherit;
+    box-shadow:0 4px 12px rgba(22,163,74,0.3);
+    display:flex; align-items:center; justify-content:center; gap:10px;
+  }
+  .med-card .took-btn:active { transform:translateY(1px); }
+  .med-card.taken { background:#DCFCE7; border-color:#16a34a; opacity:0.7; box-shadow:none; }
+  .med-card.taken .took-btn { background:#94A3B8; cursor:default; }
+
+  /* 가족 호출 카드 */
+  .family-card {
+    background:white; border:1px solid #E2E8F0; border-radius:18px;
+    padding:18px; margin-bottom:12px;
+  }
+  .family-card h2 { font-size:18px; margin:0 0 12px; color:#0F172A; }
+  .family-card .contact-btn {
+    width:100%; padding:18px; margin-bottom:8px;
+    background:#0A9396; color:white; border:none; border-radius:12px;
+    font-size:18px; font-weight:700;
+    cursor:pointer; font-family:inherit; text-decoration:none;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .family-card .contact-btn:active { transform:translateY(1px); }
+  .family-card .contact-btn.second { background:#0F766E; }
+  .family-card .contact-btn .who-name { font-size:18px; }
+  .family-card .contact-btn .phone-call { font-size:16px; opacity:0.9; }
+  .family-card .none {
+    color:#94A3B8; text-align:center; padding:14px; font-size:14px;
+  }
+
+  /* 응급카드 보기 카드 */
+  .info-card {
+    background:white; border:1px solid #E2E8F0; border-radius:18px;
+    padding:18px; margin-bottom:12px;
+  }
+  .info-card h2 { font-size:18px; margin:0 0 6px; color:#0F172A; }
+  .info-card .desc { color:#64748B; font-size:14px; line-height:1.5; margin-bottom:12px; }
+  .info-card .open-btn {
+    width:100%; padding:14px; border:1px solid #0F766E;
+    background:white; color:#0F766E; border-radius:10px;
+    font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;
+    text-decoration:none; text-align:center; display:block;
+  }
+
+  /* 토스트 */
+  #toast {
+    position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
+    background:#0F172A; color:white; padding:14px 20px; border-radius:10px;
+    font-size:15px; font-weight:600; z-index:9000;
+    opacity:0; transition:opacity 0.2s; pointer-events:none;
+    box-shadow:0 4px 14px rgba(0,0,0,0.25);
+    max-width:90vw; text-align:center;
+  }
+  #toast.show { opacity:1; }
+  #toast.danger { background:#DC2626; }
+  #toast.warn { background:#F59E0B; color:#0F172A; }
+  #toast.ok { background:#16a34a; }
+
+  /* 빈 상태 */
+  .empty-recipient {
+    background:white; border-radius:16px; padding:40px 20px;
+    text-align:center; color:#94A3B8; font-size:16px; line-height:1.6;
+  }
+  .empty-recipient .big-ic { font-size:60px; margin-bottom:14px; }
+</style>
+</head>
+<body class="page">
+<div id="toast"></div>
+<div class="mobile-shell">
+  <header class="app-bar">
+    <div class="hstack">
+      <span class="brand-logo">CS</span>
+      <div>
+        <h1>나의 안심</h1>
+        <div class="sub" id="modeSub">CareSafe</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="content">
+    <!-- 인사 카드 -->
+    <div class="greeting" id="greeting">
+      <div class="hello" id="helloLabel">오늘도 안녕하세요</div>
+      <div class="who" id="whoName">—</div>
+      <div class="clock" id="clockNow">—</div>
+    </div>
+
+    <!-- 빈 상태 (URL에 uid 없거나 매칭 시니어 없을 때) -->
+    <div id="emptyHost" style="display:none">
+      <div class="empty-recipient">
+        <div class="big-ic">👤</div>
+        <div>등록된 정보가 없습니다.<br>가족(보호자)에게 등록을 요청하세요.</div>
+      </div>
+    </div>
+
+    <!-- 본 컨텐츠 -->
+    <div id="mainHost" style="display:none">
+      <!-- SOS 큰 버튼 -->
+      <button class="big-sos" id="sosBtn" aria-label="SOS — 누르고 있어주세요">
+        <span class="icon">🆘</span>
+        <span class="label">SOS</span>
+        <span class="sub">한 번 누름 = 도움 요청 · 3초 길게 = 위급</span>
+      </button>
+
+      <!-- 누름 진행 -->
+      <div class="sos-progress" id="sosProgress" style="display:none">
+        <div class="sos-bar"><div id="sosBar"></div></div>
+        <div class="sos-bar-label" id="sosBarLabel">누르고 있음...</div>
+      </div>
+
+      <!-- 오늘 복약 (시간 도달 시 자동 표시) -->
+      <div id="medsHost"></div>
+
+      <!-- 가족 호출 -->
+      <div class="family-card">
+        <h2>📞 가족 호출 (가장 빠른 연락)</h2>
+        <div id="contactsList"></div>
+      </div>
+
+      <!-- 응급카드 보기 (잠금 화면용) -->
+      <div class="info-card">
+        <h2>🆔 내 응급정보</h2>
+        <div class="desc">
+          만약을 위해 등록된 응급 정보. 의식 없을 때 발견자가
+          본 정보로 가족에게 연락할 수 있어요.
+        </div>
+        <a class="open-btn" id="openCardLink" target="_blank" rel="noopener">↗ 응급정보 카드 열기</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="app.js"></script>
+<script type="module" src="auth-guard.js"></script>
+<script src="mode-link.js"></script>
+<script type="module" src="app-firebase.js"></script>
+<script src="data/meds-runtime.js"></script>
+<script>
+// XSS escape 헬퍼
+const E = (window.CareSafe && window.CareSafe.esc) || function(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+};
+
+// 전화번호 정제 — tel: URI 안전
+function _phoneClean(s) {
+  return String(s || '').replace(/[^0-9+]/g, '');
+}
+
+// 시계 갱신
+function tickClock() {
+  const d = new Date();
+  const dayNames = ['일','월','화','수','목','금','토'];
+  const yyyy = d.getFullYear(), mm = d.getMonth()+1, dd = d.getDate();
+  const hh = String(d.getHours()).padStart(2,'0'), mi = String(d.getMinutes()).padStart(2,'0');
+  document.getElementById('clockNow').textContent =
+    `${yyyy}년 ${mm}월 ${dd}일 (${dayNames[d.getDay()]}) · ${hh}:${mi}`;
+}
+tickClock();
+setInterval(tickClock, 30000);
+
+// URL ?uid= 우선, 없으면 activeUid
+function getActiveSenior() {
+  const state = CareSafe.load();
+  const urlUid = new URLSearchParams(location.search).get('uid');
+  const id = urlUid || state.activeUid;
+  return state.seniors.find(s => s.id === id) || state.seniors[0] || null;
+}
+
+// 인사말 변형 (시간대별)
+function _greetingByHour() {
+  const h = new Date().getHours();
+  if (h < 6) return '편안한 밤 되세요';
+  if (h < 12) return '좋은 아침입니다';
+  if (h < 18) return '평안한 오후입니다';
+  return '편안한 저녁입니다';
+}
+
+// 호칭 — 이름만 표시 (관계명 필드 v0.3에서 추가 예정)
+function _displayWho(senior) {
+  if (!senior) return '';
+  return `${E(senior.name)} 님`;
+}
+
+function render() {
+  const senior = getActiveSenior();
+  const greetingEl = document.getElementById('greeting');
+  const mainHost = document.getElementById('mainHost');
+  const emptyHost = document.getElementById('emptyHost');
+
+  if (!senior) {
+    greetingEl.style.display = 'none';
+    mainHost.style.display = 'none';
+    emptyHost.style.display = 'block';
+    return;
+  }
+
+  greetingEl.style.display = 'block';
+  mainHost.style.display = 'block';
+  emptyHost.style.display = 'none';
+
+  document.getElementById('helloLabel').textContent = _greetingByHour();
+  document.getElementById('whoName').innerHTML = _displayWho(senior);
+
+  // 가족 연락처 (우선순위순 최대 2명)
+  const contacts = (senior.emergencyContacts || [])
+    .filter(c => c && c.phone)
+    .sort((a,b) => (a.priority || 99) - (b.priority || 99))
+    .slice(0, 2);
+  const listEl = document.getElementById('contactsList');
+  if (contacts.length === 0) {
+    listEl.innerHTML = '<div class="none">등록된 가족 연락처 없음 — 보호자가 등록 필요</div>';
+  } else {
+    listEl.innerHTML = contacts.map((c, i) => `
+      <a class="contact-btn ${i > 0 ? 'second' : ''}" href="tel:${_phoneClean(c.phone)}">
+        <span class="who-name">${E(c.name || '가족 ' + (i+1))}</span>
+        <span class="phone-call">📞 전화 걸기</span>
+      </a>
+    `).join('');
+  }
+
+  // 응급카드 열기 링크
+  const link = document.getElementById('openCardLink');
+  if (senior.qrToken) {
+    const url = new URL('emergency.html', location.href);
+    url.searchParams.set('token', senior.qrToken);
+    link.href = url.href;
+    link.style.opacity = '1';
+    link.style.pointerEvents = 'auto';
+  } else {
+    link.removeAttribute('href');
+    link.style.opacity = '0.5';
+    link.style.pointerEvents = 'none';
+    link.textContent = '응급정보 카드 미발급 — 보호자에게 요청';
+  }
+
+  renderMeds(senior);
+}
+
+// ===== 오늘 복약 (시간 도달 시 자동 표시) =====
+function renderMeds(senior) {
+  const host = document.getElementById('medsHost');
+  if (!host || !window.CareSafeMeds) { host.innerHTML = ''; return; }
+  const pending = window.CareSafeMeds.pendingSlots(senior);
+  if (pending.length === 0) { host.innerHTML = ''; return; }
+  host.innerHTML = pending.map(slot => `
+    <div class="med-card" data-slot="${E(slot.fullKey)}">
+      <div class="ic-row">
+        <span class="ic">💊</span>
+        <span class="label">복약 시간</span>
+      </div>
+      <div class="name">${E(slot.medName)}</div>
+      <div class="dose">${E(slot.medDose || '')}</div>
+      <div class="when">⏰ ${E(slot.time)}${slot.medFor ? ' · ' + E(slot.medFor) : ''}</div>
+      <button class="took-btn" data-slot="${E(slot.fullKey)}">
+        ✅ 먹었어요
+      </button>
+    </div>
+  `).join('');
+}
+
+// 복약 체크 위임
+document.getElementById('medsHost').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('.took-btn[data-slot]');
+  if (!btn) return;
+  const senior = getActiveSenior();
+  if (!senior) return;
+  const slots = window.CareSafeMeds.todaySlots(senior);
+  const slot = slots.find(s => s.fullKey === btn.dataset.slot);
+  if (!slot) return;
+  window.CareSafeMeds.markTaken(senior, slot);
+  if (window.CareSafe?.toast) CareSafe.toast(`${slot.medName} 체크 완료. 잘하셨어요!`, 'ok');
+  else { showToast(`${slot.medName} 체크 완료. 잘하셨어요!`, 'ok'); }
+  // 카드 비활성 처리
+  const card = btn.closest('.med-card');
+  if (card) { card.classList.add('taken'); btn.textContent = '✓ 먹음'; btn.disabled = true; }
+});
+
+// ===== SOS 누름 (1초=요청 · 3초+=위급) =====
+const SOS_URGENT_MS = 3000;
+let sosPressStart = null;
+let sosTickTimer = null;
+
+const sosBtn = document.getElementById('sosBtn');
+const sosProgress = document.getElementById('sosProgress');
+const sosBar = document.getElementById('sosBar');
+const sosBarLabel = document.getElementById('sosBarLabel');
+
+function sosStart(e) {
+  e.preventDefault();
+  if (sosPressStart) return;
+  sosPressStart = Date.now();
+  sosBtn.classList.add('holding');
+  sosProgress.style.display = 'block';
+  sosBar.classList.remove('danger');
+  sosTick();
+  sosTickTimer = setInterval(sosTick, 50);
+}
+function sosTick() {
+  if (!sosPressStart) return;
+  const elapsed = Date.now() - sosPressStart;
+  const pct = Math.min(100, (elapsed / SOS_URGENT_MS) * 100);
+  sosBar.style.width = pct + '%';
+  if (elapsed < SOS_URGENT_MS) {
+    sosBarLabel.textContent = `손 떼면 도움 요청 전송 · 3초 길게 누르면 위급 (현재 ${(elapsed/1000).toFixed(1)}초)`;
+  } else {
+    sosBarLabel.textContent = '⚠️ 위급 호출 — 손 떼면 가족에게 전송';
+    sosBar.classList.add('danger');
+  }
+}
+function sosEnd(e) {
+  if (e) e.preventDefault();
+  if (!sosPressStart) return;
+  const elapsed = Date.now() - sosPressStart;
+  clearInterval(sosTickTimer);
+  sosTickTimer = null;
+  sosPressStart = null;
+  sosBtn.classList.remove('holding');
+  sosProgress.style.display = 'none';
+  sosBar.style.width = '0%';
+  sosBar.classList.remove('danger');
+
+  const senior = getActiveSenior();
+  if (!senior) return;
+  const urgent = elapsed >= SOS_URGENT_MS;
+  const alert = {
+    uid: senior.id,
+    type: 'sos',
+    level: urgent ? 'danger' : 'warn',
+    text: urgent ? '🆘 위급 SOS — 보호대상자 직접 호출' : '🆘 도움 요청 — 보호대상자 직접 호출',
+  };
+  // 위치 동의 시 GPS 첨부
+  if (senior.locationConsent === true && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        alert.location = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          address: '현재 위치 (GPS)',
+        };
+        CareSafe.addAlert(alert);
+        showToast(urgent ? '⚠️ 위급 호출 전송됨' : '🆘 도움 요청 전송됨', urgent ? 'danger' : 'warn');
+      },
+      () => {
+        CareSafe.addAlert(alert);
+        showToast((urgent ? '⚠️ 위급 호출 전송됨' : '🆘 도움 요청 전송됨') + ' (위치 미첨부)', urgent ? 'danger' : 'warn');
+      },
+      { timeout: 5000 }
+    );
+  } else {
+    CareSafe.addAlert(alert);
+    showToast(urgent ? '⚠️ 위급 호출 전송됨' : '🆘 도움 요청 전송됨', urgent ? 'danger' : 'warn');
+  }
+}
+sosBtn.addEventListener('mousedown', sosStart);
+sosBtn.addEventListener('touchstart', sosStart, { passive: false });
+sosBtn.addEventListener('mouseup', sosEnd);
+sosBtn.addEventListener('mouseleave', sosEnd);
+sosBtn.addEventListener('touchend', sosEnd);
+sosBtn.addEventListener('touchcancel', sosEnd);
+
+// 인앱 토스트 (CareSafe.toast가 없을 때 fallback)
+function showToast(msg, kind) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (kind || '');
+  setTimeout(() => { t.className = ''; }, 3000);
+}
+
+// Firebase 복약 sync (다른 기기에서 markTaken 시 자동 갱신)
+window.addEventListener('caresafe-medlog-sync', () => render());
+
+// 초기 + 변경 구독
+CareSafe.subscribe(() => render());
+render();
+// 1분마다 재렌더 (복약 시간 도달 자동 표시용)
+setInterval(render, 60000);
+</script>
+</body>
+</html>
