@@ -2,6 +2,31 @@
   "database": {
     "rules": "database.rules.json"
   },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "database.rules.json",
+      "functions/**",
+      "node_modules/**",
+      ".git/**",
+      ".gitignore",
+      "**/.DS_Store",
+      "package*.json"
+    ],
+    "rewrites": [],
+    "headers": [
+      {
+        "source": "/firebase-messaging-sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        ]
+      }
+    ]
+  },
   "functions": [
     {
       "source": "functions",
