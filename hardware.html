@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>하드웨어 연결 · CareSafe</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* 헤더 */
+  .hw-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 0; margin-bottom:8px;
+  }
+  .hw-header h1 { margin:0; font-size:20px; color:#0F172A; }
+  .hw-add-btn {
+    width:44px; height:44px; border-radius:50%;
+    background:#16A34A; color:white; border:none;
+    font-size:22px; cursor:pointer; font-family:inherit;
+    box-shadow:0 4px 14px rgba(22,163,74,0.3);
+    transition:transform 0.1s, background 0.15s;
+  }
+  .hw-add-btn:hover { background:#15803D; }
+  .hw-add-btn:active { transform:scale(0.95); }
+
+  /* 기기 카드 */
+  .device-card {
+    background:white; border-radius:14px; padding:16px;
+    margin-bottom:10px; display:flex; gap:14px; align-items:center;
+    border:1px solid #E2E8F0; cursor:pointer;
+    transition:background 0.1s, border-color 0.15s;
+  }
+  .device-card:hover { background:#F8FAFC; border-color:#CBD5E1; }
+  .device-card .ic-wrap {
+    width:60px; height:60px; border-radius:12px;
+    background:#F0FDF4; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; font-size:32px;
+  }
+  .device-card .body { flex:1; min-width:0; }
+  .device-card .name {
+    color:#0F172A; font-size:16px; font-weight:700; margin-bottom:2px;
+  }
+  .device-card .meta {
+    color:#64748B; font-size:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+  }
+  .device-card .meta .status { font-weight:700; }
+  .device-card .meta .status.online { color:#16A34A; }
+  .device-card .meta .status.offline { color:#F59E0B; }
+  .device-card .battery {
+    color:#64748B; font-size:12px; font-weight:600;
+    background:#F1F5F9; padding:2px 8px; border-radius:999px;
+  }
+  .device-card .battery.low { background:#FEE2E2; color:#991B1B; }
+  .device-card .actions { display:flex; gap:4px; }
+  .device-card .actions .del {
+    width:30px; height:30px; border-radius:50%; background:#FEE2E2; color:#991B1B;
+    border:none; font-size:14px; cursor:pointer; font-family:inherit;
+  }
+
+  /* 빈 상태 */
+  .empty-hw {
+    background:white; border-radius:16px; padding:40px 20px;
+    text-align:center; color:#94A3B8; border:1px dashed #E2E8F0;
+    margin-top:16px;
+  }
+  .empty-hw .big-ic { font-size:60px; margin-bottom:12px; }
+  .empty-hw .empty-title { font-size:16px; font-weight:700; color:#0F172A; margin-bottom:6px; }
+  .empty-hw p { font-size:13px; line-height:1.5; }
+
+  /* 제품 추가 모달 */
+  .hw-modal-overlay {
+    position:fixed; inset:0; background:rgba(15,23,42,0.6);
+    z-index:9000; display:none; align-items:flex-end; justify-content:center;
+  }
+  .hw-modal-overlay.show { display:flex; animation:fadeIn 0.15s ease; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .hw-modal {
+    background:#F8FAFC; width:100%; max-width:560px;
+    border-radius:20px 20px 0 0; padding:16px 16px 32px;
+    max-height:90vh; overflow-y:auto; position:relative;
+    animation:slideUp 0.2s ease;
+  }
+  .hw-modal .modal-head {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 4px 14px;
+  }
+  .hw-modal h2 { margin:0; font-size:18px; color:#0F172A; }
+  .hw-modal .close-btn {
+    background:transparent; border:none; font-size:22px; cursor:pointer; color:#64748B;
+  }
+  .hw-modal .search-status {
+    background:white; border-radius:12px; padding:14px;
+    margin-bottom:8px; display:flex; gap:12px; align-items:flex-start;
+  }
+  .hw-modal .search-status .pulse {
+    width:18px; height:18px; border-radius:50%; background:#0A9396;
+    flex-shrink:0; margin-top:2px;
+    animation:pulse-ring 1.5s ease-out infinite;
+  }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(10,147,150,0.6); }
+    70% { box-shadow: 0 0 0 14px rgba(10,147,150,0); }
+    100% { box-shadow: 0 0 0 0 rgba(10,147,150,0); }
+  }
+  .hw-modal .search-status .text { color:#475569; font-size:13px; line-height:1.5; }
+  .hw-modal .search-status .text strong { color:#0F172A; }
+  .hw-modal .search-status .link { color:#0F766E; font-weight:700; }
+
+  .hw-modal .wifi-alert {
+    background:white; border-radius:10px; padding:12px 14px;
+    margin-bottom:14px; display:flex; align-items:center; gap:10px;
+    border:1px solid #FEE2E2;
+  }
+  .hw-modal .wifi-alert .ic-wifi {
+    width:40px; height:40px; border-radius:50%;
+    background:#FEE2E2; color:#DC2626; display:flex; align-items:center; justify-content:center;
+    font-size:20px; flex-shrink:0;
+  }
+  .hw-modal .wifi-alert .text { flex:1; font-size:13px; }
+  .hw-modal .wifi-alert .text .t { color:#0F172A; font-weight:700; margin-bottom:2px; }
+  .hw-modal .wifi-alert .text .s { color:#64748B; font-size:12px; }
+
+  .hw-modal .add-direct-title {
+    text-align:center; font-size:14px; color:#475569; font-weight:600;
+    padding:12px 0 6px;
+  }
+
+  .hw-categories {
+    display:flex; gap:14px; padding:8px 4px 18px;
+    overflow-x:auto;
+  }
+  .hw-categories .cat-btn {
+    flex-shrink:0; padding:6px 0; min-width:40px;
+    text-align:center; font-size:13px; color:#94A3B8;
+    background:transparent; border:none; cursor:pointer;
+    font-family:inherit; font-weight:600;
+    border-bottom:2px solid transparent;
+  }
+  .hw-categories .cat-btn.active { color:#0F172A; border-bottom-color:#16A34A; }
+
+  .hw-product-grid {
+    display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;
+  }
+  .hw-product {
+    background:white; border-radius:12px; padding:14px 10px;
+    text-align:center; cursor:pointer; transition:transform 0.1s, box-shadow 0.15s;
+    border:1px solid #E2E8F0;
+  }
+  .hw-product:hover { box-shadow:0 4px 14px rgba(15,23,42,0.08); border-color:#86EFAC; }
+  .hw-product:active { transform:scale(0.97); }
+  .hw-product .pic { font-size:36px; margin-bottom:8px; line-height:1; }
+  .hw-product .name { font-size:12px; color:#0F172A; line-height:1.3; font-weight:600; }
+
+  /* 페어링 효과 */
+  .pairing-overlay {
+    position:fixed; inset:0; background:rgba(15,23,42,0.8);
+    z-index:9500; display:none; align-items:center; justify-content:center;
+    color:white; text-align:center;
+  }
+  .pairing-overlay.show { display:flex; }
+  .pairing-overlay .pair-box { padding:30px; max-width:300px; }
+  .pairing-overlay .pair-icon {
+    font-size:64px; margin-bottom:18px;
+    animation:pair-spin 1.5s linear infinite;
+  }
+  @keyframes pair-spin {
+    0% { transform:rotate(0); }
+    100% { transform:rotate(360deg); }
+  }
+  .pairing-overlay .pair-status { font-size:18px; font-weight:700; margin-bottom:8px; }
+  .pairing-overlay .pair-detail { font-size:13px; opacity:0.8; line-height:1.5; }
+
+  .pairing-overlay.done .pair-icon { animation:none; font-size:64px; }
+  .pairing-overlay.done .pair-status { color:#86EFAC; }
+
+  /* 토스트 */
+  #toast {
+    position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
+    background:#0F172A; color:white; padding:14px 20px; border-radius:10px;
+    font-size:14px; font-weight:600; z-index:9600;
+    opacity:0; transition:opacity 0.2s; pointer-events:none;
+    box-shadow:0 4px 14px rgba(0,0,0,0.25);
+  }
+  #toast.show { opacity:1; }
+  #toast.ok { background:#16A34A; }
+  #toast.warn { background:#F59E0B; color:#0F172A; }
+
+  /* 시니어 선택 (다중 시) */
+  .senior-pick {
+    background:white; border-radius:10px; padding:10px 14px;
+    margin-bottom:12px; font-size:13px; color:#475569;
+    display:flex; align-items:center; gap:10px;
+  }
+  .senior-pick select {
+    flex:1; padding:6px 8px; border:1px solid #E2E8F0; border-radius:6px;
+    font-size:13px; font-family:inherit;
+  }
+</style>
+</head>
+<body class="page">
+<div id="toast"></div>
+<div class="mobile-shell">
+  <header class="app-bar">
+    <div class="hstack">
+      <a href="settings.html" style="text-decoration:none; color:#64748B; font-size:18px; padding:4px 8px">←</a>
+      <h1>하드웨어 연결</h1>
+    </div>
+  </header>
+
+  <section class="content">
+    <!-- 시니어 선택 (여러 명 등록 시) -->
+    <div class="senior-pick" id="seniorPick" style="display:none">
+      <span>👤</span>
+      <span>적용 대상</span>
+      <select id="seniorSelect"></select>
+    </div>
+
+    <div class="hw-header">
+      <h1 id="listTitle">모든 제품</h1>
+      <button class="hw-add-btn" id="addBtn" title="제품 추가">＋</button>
+    </div>
+
+    <div id="deviceList"></div>
+  </section>
+</div>
+
+<!-- 제품 추가 모달 -->
+<div class="hw-modal-overlay" id="addModal">
+  <div class="hw-modal">
+    <div class="modal-head">
+      <h2>제품 추가</h2>
+      <button class="close-btn" id="closeAddBtn">✕</button>
+    </div>
+
+    <div class="search-status">
+      <span class="pulse"></span>
+      <div class="text">
+        주변에 연결 가능한 제품을 검색하는 중입니다.
+        제품이 <span class="link">페어링 모드</span>로 전환되었는지 확인해 주세요.
+      </div>
+    </div>
+
+    <div class="wifi-alert">
+      <div class="ic-wifi">📶</div>
+      <div class="text">
+        <div class="t">Wi-Fi 활성</div>
+        <div class="s">2.4GHz 네트워크에 연결된 제품을 검색합니다.</div>
+      </div>
+    </div>
+
+    <div class="add-direct-title">직접 추가</div>
+
+    <div class="hw-categories">
+      <button class="cat-btn active" data-cat="all">전체</button>
+      <button class="cat-btn" data-cat="sos">SOS</button>
+      <button class="cat-btn" data-cat="sensor">센서</button>
+      <button class="cat-btn" data-cat="med">복약</button>
+      <button class="cat-btn" data-cat="cam">카메라</button>
+      <button class="cat-btn" data-cat="env">환경</button>
+      <button class="cat-btn" data-cat="hub">허브</button>
+    </div>
+
+    <div class="hw-product-grid" id="productGrid"></div>
+  </div>
+</div>
+
+<!-- 페어링 진행 오버레이 -->
+<div class="pairing-overlay" id="pairingOverlay">
+  <div class="pair-box">
+    <div class="pair-icon" id="pairIcon">⏳</div>
+    <div class="pair-status" id="pairStatus">연결 중...</div>
+    <div class="pair-detail" id="pairDetail">제품을 검색하고 인증하는 중입니다.</div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script type="module" src="auth-guard.js"></script>
+<script src="mode-link.js"></script>
+<script type="module" src="app-firebase.js"></script>
+<script>
+const E = (window.CareSafe && window.CareSafe.esc) || function(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+};
+
+// ===== 제품 카탈로그 (시연용 — 시니어 안심 IoT 컨텍스트) =====
+const PRODUCT_CATALOG = [
+  // SOS
+  { id: 'sos-pendant', cat: 'sos', name: 'SOS 목걸이형', icon: '🆘', defaultBattery: 95, location: '항시 휴대' },
+  { id: 'sos-wall',    cat: 'sos', name: 'SOS 벽걸이 버튼', icon: '🚨', defaultBattery: 100, location: '거실' },
+  { id: 'sos-watch',   cat: 'sos', name: 'SOS 스마트워치', icon: '⌚', defaultBattery: 88, location: '항시 휴대' },
+
+  // 센서
+  { id: 'sens-motion-living', cat: 'sensor', name: '동작 센서 (거실)', icon: '👁️', defaultBattery: 100, location: '거실' },
+  { id: 'sens-motion-bedroom',cat: 'sensor', name: '동작 센서 (침실)', icon: '👁️', defaultBattery: 100, location: '침실' },
+  { id: 'sens-motion-bath',   cat: 'sensor', name: '동작 센서 (욕실)', icon: '👁️', defaultBattery: 92, location: '욕실' },
+  { id: 'sens-door',          cat: 'sensor', name: '도어 열림 센서', icon: '🚪', defaultBattery: 100, location: '현관' },
+  { id: 'sens-fall',          cat: 'sensor', name: '낙상 감지 센서 (WiFi 센싱)', icon: '⚠️', defaultBattery: 100, location: '거실' },
+  { id: 'sens-bed',           cat: 'sensor', name: '침대 매트 압력 센서', icon: '🛏️', defaultBattery: 100, location: '침실' },
+
+  // 복약
+  { id: 'med-smart-box', cat: 'med', name: '스마트 약통 (7일)', icon: '💊', defaultBattery: 78, location: '주방' },
+  { id: 'med-dispenser', cat: 'med', name: '자동 약 디스펜서', icon: '💉', defaultBattery: 100, location: '주방' },
+  { id: 'med-weight',    cat: 'med', name: '무게 감지 약통', icon: '⚖️', defaultBattery: 85, location: '주방' },
+
+  // 카메라 (선택적, 동의 필요)
+  { id: 'cam-living',  cat: 'cam', name: '홈카메라 (거실, 동의 필수)', icon: '📷', defaultBattery: 100, location: '거실' },
+  { id: 'cam-door',    cat: 'cam', name: '현관 카메라', icon: '📹', defaultBattery: 100, location: '현관' },
+
+  // 환경
+  { id: 'env-temp',    cat: 'env', name: '온습도 센서', icon: '🌡️', defaultBattery: 98, location: '거실' },
+  { id: 'env-co',      cat: 'env', name: 'CO 가스 감지기', icon: '⚠️', defaultBattery: 100, location: '주방' },
+  { id: 'env-smoke',   cat: 'env', name: '연기 감지기', icon: '🔥', defaultBattery: 100, location: '거실 천장' },
+  { id: 'env-air',     cat: 'env', name: '공기질 센서', icon: '💨', defaultBattery: 92, location: '거실' },
+
+  // 허브
+  { id: 'hub-main',    cat: 'hub', name: '메인 허브 (WiFi 센싱)', icon: '📡', defaultBattery: 100, location: '거실 (상시 전원)' },
+  { id: 'hub-remote',  cat: 'hub', name: '리모컨 허브 (IR)', icon: '📺', defaultBattery: 100, location: '거실' },
+];
+
+const CATEGORY_LABEL = {
+  sos: 'SOS', sensor: '센서', med: '복약', cam: '카메라', env: '환경', hub: '허브',
+};
+
+// ===== 시니어 선택 =====
+function getActiveSenior() {
+  const state = CareSafe.load();
+  const sel = document.getElementById('seniorSelect');
+  const id = sel?.value || state.activeUid;
+  return state.seniors.find(s => s.id === id) || state.seniors[0] || null;
+}
+
+function populateSeniorPick() {
+  const state = CareSafe.load();
+  const sel = document.getElementById('seniorSelect');
+  const pickHost = document.getElementById('seniorPick');
+  if (state.seniors.length === 0) {
+    pickHost.style.display = 'none';
+    return;
+  }
+  pickHost.style.display = state.seniors.length > 1 ? 'flex' : 'none';
+  sel.innerHTML = state.seniors.map(s =>
+    `<option value="${E(s.id)}" ${s.id === state.activeUid ? 'selected' : ''}>${E(s.name)}${s.relationship ? ' · ' + E(s.relationship) : ''}</option>`
+  ).join('');
+  sel.onchange = () => { CareSafe.setActive(sel.value); render(); };
+}
+
+// ===== 등록 기기 렌더 =====
+function render() {
+  populateSeniorPick();
+  const senior = getActiveSenior();
+  const host = document.getElementById('deviceList');
+  if (!senior) {
+    host.innerHTML = `
+      <div class="empty-hw">
+        <div class="big-ic">👤</div>
+        <div class="empty-title">먼저 돌봄대상자를 등록해주세요</div>
+        <p>보호자 앱에서 돌봄대상자를 추가한 뒤 다시 시도해주세요.</p>
+      </div>`;
+    return;
+  }
+  const devices = senior.devices || [];
+  document.getElementById('listTitle').textContent = `모든 제품${devices.length ? ' · ' + devices.length + '개' : ''}`;
+  if (devices.length === 0) {
+    host.innerHTML = `
+      <div class="empty-hw">
+        <div class="big-ic">📡</div>
+        <div class="empty-title">연결된 기기가 없습니다</div>
+        <p>오른쪽 위 <strong>＋</strong> 버튼으로<br>SOS 버튼·센서·스마트 약통 등을 추가해보세요.</p>
+      </div>`;
+    return;
+  }
+  host.innerHTML = devices.map(d => {
+    const safeStatus = d.status === 'online' ? 'online' : 'offline';
+    const statusText = safeStatus === 'online' ? '● 연결됨' : '● 오프라인';
+    const lowBattery = typeof d.battery === 'number' && d.battery < 30;
+    const lastPing = d.lastPing ? _fmtPing(d.lastPing) : '';
+    return `
+      <div class="device-card" data-did="${E(d.id)}">
+        <div class="ic-wrap">${E(d.icon || '📡')}</div>
+        <div class="body">
+          <div class="name">${E(d.name)}</div>
+          <div class="meta">
+            <span class="status ${safeStatus}">${statusText}</span>
+            ${d.location ? '<span>· 📍 ' + E(d.location) + '</span>' : ''}
+            ${lastPing ? '<span>· 🕐 ' + E(lastPing) + '</span>' : ''}
+          </div>
+        </div>
+        ${typeof d.battery === 'number' ? `<div class="battery ${lowBattery ? 'low' : ''}">🔋 ${E(d.battery)}%</div>` : ''}
+        <div class="actions">
+          <button class="del" data-del="${E(d.id)}" title="삭제">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function _fmtPing(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return '방금 전';
+  if (diff < 3600000) return Math.floor(diff/60000) + '분 전';
+  if (diff < 86400000) return Math.floor(diff/3600000) + '시간 전';
+  return Math.floor(diff/86400000) + '일 전';
+}
+
+function showToast(msg, kind) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (kind || '');
+  setTimeout(() => { t.className = ''; }, 2500);
+}
+
+// ===== 기기 추가 =====
+function openAddModal() {
+  if (CareSafe.load().seniors.length === 0) {
+    showToast('먼저 돌봄대상자를 등록해주세요', 'warn');
+    return;
+  }
+  document.getElementById('addModal').classList.add('show');
+  filterCategory('all');
+}
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('show');
+}
+
+function filterCategory(cat) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+  const grid = document.getElementById('productGrid');
+  const items = cat === 'all' ? PRODUCT_CATALOG : PRODUCT_CATALOG.filter(p => p.cat === cat);
+  grid.innerHTML = items.map(p => `
+    <div class="hw-product" data-pid="${E(p.id)}">
+      <div class="pic">${E(p.icon)}</div>
+      <div class="name">${E(p.name)}</div>
+    </div>
+  `).join('');
+}
+
+async function addDevice(pid) {
+  const product = PRODUCT_CATALOG.find(p => p.id === pid);
+  if (!product) return;
+  closeAddModal();
+  await runPairingFlow(product);
+}
+
+async function runPairingFlow(product) {
+  const overlay = document.getElementById('pairingOverlay');
+  const icon = document.getElementById('pairIcon');
+  const status = document.getElementById('pairStatus');
+  const detail = document.getElementById('pairDetail');
+  overlay.classList.remove('done');
+  overlay.classList.add('show');
+
+  // 단계별 시뮬레이션 (시연용)
+  const steps = [
+    { ic: '🔍', s: '주변 검색 중...', d: `${product.name} 신호 탐색`, ms: 1200 },
+    { ic: '📡', s: '제품 발견', d: '인증 토큰 교환 중', ms: 900 },
+    { ic: '🔐', s: '보안 페어링', d: 'AES-256 키 협상', ms: 900 },
+    { ic: '⚙️', s: '초기 설정', d: '펌웨어 점검 · 시각 동기화', ms: 700 },
+  ];
+  for (const step of steps) {
+    icon.textContent = step.ic;
+    status.textContent = step.s;
+    detail.textContent = step.d;
+    await new Promise(r => setTimeout(r, step.ms));
+  }
+
+  // 완료
+  overlay.classList.add('done');
+  icon.textContent = '✅';
+  status.textContent = '연결 완료';
+  detail.textContent = `${product.name}이(가) 등록되었습니다`;
+  await new Promise(r => setTimeout(r, 1100));
+  overlay.classList.remove('show', 'done');
+
+  // 실제 senior.devices에 추가
+  const senior = getActiveSenior();
+  if (!senior) return;
+  const devices = senior.devices || [];
+  const newDevice = {
+    id: 'dev_' + Date.now() + Math.random().toString(36).slice(2, 5),
+    productId: product.id,
+    name: product.name,
+    icon: product.icon,
+    category: product.cat,
+    status: 'online',
+    battery: product.defaultBattery,
+    location: product.location,
+    connectedAt: Date.now(),
+    lastPing: Date.now(),
+  };
+  devices.push(newDevice);
+  senior.devices = devices;
+  await CareSafe.saveSenior(senior);
+  showToast(`✅ ${product.name} 등록 완료`, 'ok');
+  render();
+}
+
+async function removeDevice(devId) {
+  const senior = getActiveSenior();
+  if (!senior) return;
+  const d = (senior.devices || []).find(x => x.id === devId);
+  if (!d) return;
+  if (!confirm(`${d.name} 연결을 해제하시겠습니까?`)) return;
+  senior.devices = (senior.devices || []).filter(x => x.id !== devId);
+  await CareSafe.saveSenior(senior);
+  showToast(`연결 해제됨: ${d.name}`, 'ok');
+  render();
+}
+
+// ===== 이벤트 위임 =====
+document.getElementById('addBtn').addEventListener('click', openAddModal);
+document.getElementById('closeAddBtn').addEventListener('click', closeAddModal);
+document.getElementById('addModal').addEventListener('click', (ev) => {
+  if (ev.target.id === 'addModal') closeAddModal();
+});
+document.addEventListener('click', (ev) => {
+  const cat = ev.target.closest('.cat-btn');
+  if (cat) { filterCategory(cat.dataset.cat); return; }
+  const prod = ev.target.closest('.hw-product');
+  if (prod) { addDevice(prod.dataset.pid); return; }
+  const del = ev.target.closest('.del[data-del]');
+  if (del) { removeDevice(del.dataset.del); return; }
+});
+
+CareSafe.subscribe(() => render());
+render();
+</script>
+</body>
+</html>
