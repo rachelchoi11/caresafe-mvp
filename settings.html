@@ -275,7 +275,7 @@ document.getElementById('pushEnableBtn')?.addEventListener('click', async () => 
   showStatus('⏳ 권한 요청 + 토큰 발급 중...', 'warn');
   const result = await window.CareSafeFB.registerPushToken();
   if (result.ok) {
-    showStatus(`✅ 푸시 알림 활성화 완료. 백엔드(Cloud Function)가 배포되면 자동으로 받습니다.\n토큰: ${result.token.slice(0, 30)}...`, 'ok');
+    showStatus(`✅ 푸시 알림 활성화 완료. 시니어 SOS·낙상 발생 시 자동으로 OS 알림이 도달합니다.\n토큰(앞 24자): ${result.token.slice(0, 24)}...`, 'ok');
   } else {
     showStatus(`❌ 등록 실패: ${result.reason}`, 'err');
   }
