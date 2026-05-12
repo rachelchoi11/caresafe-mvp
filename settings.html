@@ -87,6 +87,41 @@
     </div>
 
     <div class="card">
+      <h2>안전 환경 진단</h2>
+      <p class="muted" style="font-size:13px; line-height:1.5">
+        돌봄대상자 거주 환경을 처음 한 번 점검합니다. 완료 후에는 보호자 홈에서 사라지고
+        이곳에서 결과 확인 · 다시 진단을 할 수 있어요.
+      </p>
+      <div class="set-row" style="margin-top:8px">
+        <span class="k">진단 상태</span>
+        <span class="v" id="safetyStateLabel">—</span>
+      </div>
+      <div style="display:grid; gap:8px; margin-top:10px">
+        <a class="btn" id="safetyViewBtn" href="guardian.html" style="text-decoration:none; text-align:center">
+          진단 결과 보기
+        </a>
+        <button class="btn ghost" id="safetyResetBtn">다시 진단하기</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>응급정보 카드 관리</h2>
+      <p class="muted" style="font-size:13px; line-height:1.5">
+        QR · NFC 응급카드 발급, 응급정보 편집, 토큰 재발급을 한 곳에서 관리합니다.
+      </p>
+      <div id="emActiveHost" style="margin-top:10px; padding:10px 14px; background:var(--bg); border-radius:10px; font-size:13px;">
+        <div class="muted" style="margin-bottom:2px">선택된 돌봄대상자</div>
+        <div id="emActiveName" style="font-weight:700">—</div>
+      </div>
+      <div style="display:grid; gap:8px; margin-top:12px">
+        <button class="btn" id="emEditBtn">응급정보 편집</button>
+        <button class="btn" id="emNfcBtn" style="background:#0F766E">NFC 카드에 굽기 (Android Chrome)</button>
+        <button class="btn ghost" id="emRevokeBtn" style="color:#991B1B">QR 토큰 재발급 (분실·노출 시)</button>
+      </div>
+      <div id="emNfcStatus" style="display:none; margin-top:10px; padding:10px; border-radius:8px; font-size:12px; line-height:1.5"></div>
+    </div>
+
+    <div class="card">
       <h2>🔌 하드웨어 연결</h2>
       <p class="muted" style="font-size:13px; line-height:1.5">
         SOS 버튼·동작 센서·스마트 약통·환경 센서 등 IoT 기기를 등록하고 상태를 확인합니다.
@@ -299,7 +334,139 @@ document.getElementById('pushEnableBtn')?.addEventListener('click', async () => 
   }
 });
 
-CareSafe.subscribe(() => render());
+// ============================================
+// 응급정보 카드 관리 (NFC · 재발급 · 편집)
+// ============================================
+function _emRefresh() {
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid) || state.seniors[0];
+  const nameEl = document.getElementById('emActiveName');
+  if (!senior) {
+    if (nameEl) nameEl.textContent = '돌봄대상자를 먼저 등록해주세요';
+    return;
+  }
+  if (nameEl) nameEl.textContent = `${senior.name}${senior.relationship ? ' · ' + senior.relationship : ''}`;
+}
+function _emShowStatus(msg, kind) {
+  const el = document.getElementById('emNfcStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  const kinds = {
+    ok:   { bg:'#F0FDF4', bd:'#BBF7D0', co:'#166534' },
+    warn: { bg:'#FEF3C7', bd:'#FCD34D', co:'#92400E' },
+    err:  { bg:'#FEF2F2', bd:'#FECACA', co:'#991B1B' },
+  }[kind || 'ok'];
+  el.style.background = kinds.bg;
+  el.style.border = '1px solid ' + kinds.bd;
+  el.style.color = kinds.co;
+}
+
+document.getElementById('emEditBtn')?.addEventListener('click', () => {
+  const state = CareSafe.load();
+  if (!state.activeUid) { alert('돌봄대상자를 먼저 등록해주세요'); return; }
+  // guardian에 ?edit=uid 파라미터로 이동 — guardian이 자동으로 편집 모달 열도록
+  const url = new URL('guardian.html', location.href);
+  url.searchParams.set('edit', state.activeUid);
+  // mode 보존
+  const mode = new URLSearchParams(location.search).get('mode');
+  if (mode) url.searchParams.set('mode', mode);
+  location.href = url.href;
+});
+
+document.getElementById('emNfcBtn')?.addEventListener('click', async () => {
+  if (!('NDEFReader' in window)) {
+    _emShowStatus('이 기기는 Web NFC를 지원하지 않습니다 (Android Chrome 89+ 필요). iOS는 미지원.', 'err');
+    return;
+  }
+  if (!window.CareSafeFB?.signInGoogle) {
+    _emShowStatus('Firebase 모드에서만 NFC 발급이 가능합니다. ?mode=firebase 로 접속해주세요.', 'warn');
+    return;
+  }
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid);
+  if (!senior?.qrToken) { _emShowStatus('응급카드 토큰이 발급되지 않았습니다.', 'err'); return; }
+  const url = new URL('emergency.html', location.href);
+  url.searchParams.set('token', senior.qrToken);
+  try {
+    _emShowStatus('NFC 카드를 폰 뒷면(안테나)에 가까이 가져다 대세요...', 'warn');
+    const ndef = new NDEFReader();
+    await ndef.write({ records: [{ recordType: 'url', data: url.href }] });
+    const tail = senior.qrToken.slice(-4);
+    _emShowStatus(`✓ NFC 카드 발급 완료 — ${senior.name} (토큰 …${tail})`, 'ok');
+  } catch (e) {
+    const code = e?.name || '';
+    let hint = e?.message || '알 수 없는 오류';
+    if (code === 'NotAllowedError') hint = 'NFC 권한이 거부되었습니다.';
+    else if (code === 'NotSupportedError') hint = '이 기기는 NFC 쓰기를 지원하지 않습니다.';
+    else if (code === 'NotReadableError') hint = '카드 인식 실패 — 다시 정렬해주세요.';
+    _emShowStatus('발급 실패: ' + hint, 'err');
+  }
+});
+
+document.getElementById('emRevokeBtn')?.addEventListener('click', async () => {
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid);
+  if (!senior) { alert('돌봄대상자를 먼저 선택해주세요'); return; }
+  const ok = confirm(
+    `[${senior.name}] 어르신의 QR 토큰을 재발급합니다.\n\n` +
+    `· 새 토큰이 즉시 발급되어 새 QR/NFC 카드가 작동합니다.\n` +
+    `· 기존 토큰은 무효화됩니다.\n` +
+    `· 새 QR/NFC 카드 다시 발급(인쇄·NFC 굽기)이 필요합니다.\n\n계속할까요?`
+  );
+  if (!ok) return;
+  const oldToken = senior.qrToken;
+  const newToken = (() => {
+    const arr = new Uint8Array(6);
+    crypto.getRandomValues(arr);
+    return Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join('');
+  })();
+  try {
+    senior.qrToken = newToken;
+    await CareSafe.saveSenior(senior);
+    if (oldToken && window.CareSafeFB?.writePath) {
+      try { await window.CareSafeFB.writePath(`/qr_index/${oldToken}`, null); }
+      catch (e) { _emShowStatus('새 토큰 발급 OK · 옛 토큰 매핑 제거는 실패 (운영자 수동 정리 필요)', 'warn'); return; }
+    }
+    _emShowStatus(`✓ QR 토큰 재발급 완료. 새 QR/NFC 카드 인쇄·발급을 잊지 마세요.`, 'ok');
+  } catch (e) {
+    _emShowStatus('재발급 실패: ' + (e?.message || e), 'err');
+  }
+});
+
+// ============================================
+// 안전 환경 진단 — 다시 진단 / 상태 표시
+// ============================================
+function _safetyKey(uid) { return `caresafe:safetycheck:done:${uid}`; }
+function _safetyRefresh() {
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid) || state.seniors[0];
+  const lbl = document.getElementById('safetyStateLabel');
+  if (!lbl) return;
+  if (!senior) { lbl.textContent = '돌봄대상자 등록 필요'; return; }
+  const done = localStorage.getItem(_safetyKey(senior.id)) === '1';
+  lbl.textContent = done ? '✓ 완료' : '진행 중';
+  lbl.className = 'v ' + (done ? 'ok' : 'warn');
+}
+document.getElementById('safetyResetBtn')?.addEventListener('click', () => {
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid) || state.seniors[0];
+  if (!senior) { alert('돌봄대상자를 먼저 등록해주세요'); return; }
+  if (!confirm('진단을 처음부터 다시 시작합니다. 계속할까요?')) return;
+  localStorage.removeItem(_safetyKey(senior.id));
+  // 체크 결과도 초기화
+  try {
+    const cs = JSON.parse(localStorage.getItem('caresafe:checklist:v1') || '{}');
+    Object.keys(cs).forEach(k => { if (k.startsWith(senior.id + ':')) delete cs[k]; });
+    localStorage.setItem('caresafe:checklist:v1', JSON.stringify(cs));
+  } catch {}
+  _safetyRefresh();
+  alert('진단이 초기화됐어요. 보호자 홈에서 다시 진행해주세요.');
+});
+
+CareSafe.subscribe(() => { render(); _emRefresh(); _safetyRefresh(); });
+_emRefresh();
+_safetyRefresh();
 window.addEventListener('caresafe-auth-ready', () => render());
 render();
 </script>
