@@ -224,13 +224,17 @@ window.cleanupPings = async () => {
 // Phase 2 #6: /seniors → /seniors_public + /seniors_private 분리
 // PUBLIC: 응급카드 익명 접근용 (의료정보 — 발견자 폰으로 응급 시 조회)
 // PRIVATE: 운영용 (상태·배터리·보호자 정보 — 인증된 보호자만)
+// Codex P1 #4 (재정의): 응급 발견자 가치 vs PII 노출 trade-off.
+// emergencyContacts·doctor·cognitiveBaseline = ER triage 필수 → public 유지
+// DNR번호·구체 이력·이식기기·assistiveDevices = 식별 가능 → private
 const SENIOR_PUBLIC_FIELDS = [
-  "id","name","age","gender","height","weight","region",
-  "blood","allergies","diseases","meds","doctor","emergencyContacts",
-  "advanceDirective","recentHistory","cognitiveBaseline","implants",
-  "assistiveDevices","qrToken"
+  "id","name","age","gender","height","weight",
+  "blood","allergies","diseases","meds","doctor","emergencyContacts","cognitiveBaseline","qrToken"
 ];
-const SENIOR_PRIVATE_FIELDS = ["status","battery","lastPing","note","guardian","phone","locationConsent"];
+const SENIOR_PRIVATE_FIELDS = [
+  "region","note","guardian","phone","status","battery","lastPing","locationConsent",
+  "advanceDirective","recentHistory","implants","assistiveDevices"
+];
 
 function _splitSenior(s) {
   const pub = {}, prv = {};

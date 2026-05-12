@@ -3,8 +3,11 @@
 // 복약 스케줄 + 체크 로그 + 누락 감지 공유 헬퍼.
 // 시뮬레이터(시니어가 '먹었어요' 체크) + 보호자(현황·누락 알림) 양쪽에서 사용.
 //
-// 저장: localStorage (시니어×날짜×슬롯 단위).
-// 운영 시 Firebase /med_logs/{uid}/{YYYYMMDD}/{slotKey} 동기화 가능 (v1.0).
+// Codex P1 #3 수정: localStorage + Firebase 듀얼 sync.
+// - markTaken: localStorage 즉시 쓰기 + (firebase 모드) writePath 동시
+// - 페이지 로드 시 Firebase /med_logs/{uid} subscribe → localStorage 머지
+// - 다기기 sync 가능 (시니어 시뮬 ↔ 보호자 guardian)
+// 경로: /med_logs/{uid}/{YYYYMMDD}/{slotKey}: taken_ts
 
 window.CareSafeMeds = (function () {
   const STORAGE_KEY = 'caresafe:medlog:v1';
@@ -69,9 +72,41 @@ window.CareSafeMeds = (function () {
 
   function markTaken(senior, slot) {
     const log = _load();
-    log[slot.fullKey] = Date.now();
+    const ts = Date.now();
+    log[slot.fullKey] = ts;
     _save(log);
-    return log[slot.fullKey];
+    // Firebase 동기화 (firebase 모드에서만)
+    try {
+      const isFb = new URLSearchParams(location.search).get("mode") === "firebase";
+      if (isFb && window.CareSafeFB) {
+        const path = `/med_logs/${senior.id}/${ymd()}/${slot.slotKey}`;
+        window.CareSafeFB.writePath(path, ts).catch(e =>
+          console.warn("[Meds] Firebase sync 실패:", e));
+      }
+    } catch (e) { /* ignore */ }
+    return ts;
+  }
+
+  // 페이지 로드 시 Firebase /med_logs/{uid} 구독 → localStorage 머지.
+  // 시뮬레이터(시니어)·guardian(보호자) 양쪽 페이지에서 호출.
+  function subscribeFirebaseSync(seniorId) {
+    const isFb = new URLSearchParams(location.search).get("mode") === "firebase";
+    if (!isFb || !window.CareSafeFB || !seniorId) return null;
+    const today = ymd();
+    const path = `/med_logs/${seniorId}/${today}`;
+    return window.CareSafeFB.watchPath(path, (data) => {
+      if (!data) return;
+      const log = _load();
+      let changed = false;
+      for (const [slotKey, ts] of Object.entries(data)) {
+        const fullKey = `${seniorId}:${today}:${slotKey}`;
+        if (log[fullKey] !== ts) { log[fullKey] = ts; changed = true; }
+      }
+      if (changed) {
+        _save(log);
+        window.dispatchEvent(new CustomEvent("caresafe-medlog-sync", { detail: { seniorId } }));
+      }
+    });
   }
 
   // 알림 발사 시점에 가까운 슬롯 (지금~10분 전 사이)
@@ -99,6 +134,7 @@ window.CareSafeMeds = (function () {
     pendingSlots,
     missedSlots,
     markTaken,
+    subscribeFirebaseSync,
     MISSED_THRESHOLD_MS,
   };
 })();

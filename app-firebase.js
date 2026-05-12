@@ -142,14 +142,26 @@ function installFirebaseAdapter(FB) {
     tryActivate();
   });
 
-  // Phase 2 #6: 시니어 필드 분류 — public(응급카드용) vs private(운영용)
+  // Phase 2 #6 + Codex P1 #4 (2026-05-12 재정의):
+  // 트레이드오프 — 응급 발견자 가치 vs PII 노출.
+  // PUBLIC = ER triage·119 인계·보호자 연락에 직접 필요한 항목만.
+  // PRIVATE = 식별 가능성 큰 구체 이력·운영 정보·민감 식별자.
+  // consent.html·help.html은 이 분류와 정확히 일치하는 문구.
   const _PUBLIC_KEYS = new Set([
-    "id","name","age","gender","height","weight","region",
-    "blood","allergies","diseases","meds","doctor","emergencyContacts",
-    "advanceDirective","recentHistory","cognitiveBaseline","implants",
-    "assistiveDevices","qrToken"
+    "id","name","age","gender","height","weight",
+    "blood","allergies","diseases","meds",
+    "doctor",              // 병원·과·담당의·외래·응급실 전화 (119 인계용)
+    "emergencyContacts",   // 핵심 가치 — 발견자가 보호자 연결
+    "cognitiveBaseline",   // 응급실 의식 평가 기준선 (라벨만, 진단 X)
+    "qrToken"
   ]);
-  const _PRIVATE_KEYS = new Set(["status","battery","lastPing","note","guardian","phone","locationConsent"]);
+  const _PRIVATE_KEYS = new Set([
+    "region","note","guardian","phone","status","battery","lastPing","locationConsent",
+    "advanceDirective",     // DNR 등록번호 = 민감 식별자. 등록 여부만 별도 노출 검토 (v1.0)
+    "recentHistory",        // 구체 입원·수술 일자 = 식별 가능
+    "implants",             // 모델명·수술일자 = 식별 가능
+    "assistiveDevices",     // 일부 식별 가능 — 보호자 페이지에서만 표시
+  ]);
 
   function _splitSeniorObj(s) {
     const pub = {}, prv = {};
@@ -168,7 +180,10 @@ function installFirebaseAdapter(FB) {
       return JSON.parse(JSON.stringify(cache));
     },
 
+    // Codex P1 #2 수정: save() 전체 트리 덮어쓰기 = 동시 알림 silent 삭제 위험.
+    // 마이그레이션·리셋 외엔 사용 금지. 일반 편집은 saveSenior·deleteSenior·setActive 사용.
     async save(state) {
+      console.warn("[CareSafe] save(state) 호출됨 — 전체 트리 덮어쓰기. 마이그레이션 의도가 맞나? 일반 편집은 saveSenior·deleteSenior 권장.");
       const publicMap = {}, privateMap = {};
       (state.seniors || []).forEach((s) => {
         const { pub, prv } = _splitSeniorObj(s);
@@ -181,6 +196,38 @@ function installFirebaseAdapter(FB) {
       await FB.writePath("/seniors_private", privateMap);
       await FB.writePath("/alerts", alertsMap);
       await FB.writePath("/activeUid", state.activeUid || null);
+    },
+
+    // 단일 시니어 update — 다른 시니어·알림에 영향 ✗
+    async saveSenior(senior) {
+      const { pub, prv } = _splitSeniorObj(senior);
+      await FB.writePath(`/seniors_public/${senior.id}`, pub);
+      await FB.writePath(`/seniors_private/${senior.id}`, prv);
+      if (senior.qrToken) {
+        await FB.writePath(`/qr_index/${senior.qrToken}`, senior.id);
+      }
+    },
+
+    // 단일 시니어 삭제 + 관련 알림·qr_index 정리
+    async deleteSenior(uid) {
+      // 시니어 본체
+      await FB.writePath(`/seniors_public/${uid}`, null);
+      await FB.writePath(`/seniors_private/${uid}`, null);
+      // 관련 알림 — alerts cache에서 uid 일치 항목만 null 처리
+      const myAlerts = cache.alerts.filter(a => a.uid === uid);
+      for (const a of myAlerts) {
+        await FB.writePath(`/alerts/${a.id}`, null);
+      }
+      // qr_index — 시니어 qrToken 모르면 cache에서 조회
+      const senior = cache.seniors.find(s => s.id === uid);
+      if (senior?.qrToken) {
+        await FB.writePath(`/qr_index/${senior.qrToken}`, null);
+      }
+      // activeUid 자기 자신이면 다른 시니어로 전환
+      if (cache.activeUid === uid) {
+        const other = cache.seniors.find(s => s.id !== uid);
+        await FB.writePath("/activeUid", other ? other.id : null);
+      }
     },
 
     async reset() {

@@ -679,6 +679,25 @@ function checkMissedMeds() {
 setTimeout(checkMissedMeds, 5000);
 setInterval(checkMissedMeds, 5 * 60 * 1000);
 
+// Codex P1 #3: Firebase 복약 로그 다기기 sync — 시뮬레이터의 ‘먹었어요’가 즉시 보호자 화면에 반영
+let _medsGuardianUnsub = null;
+function _guardianSubscribeMeds() {
+  if (_medsGuardianUnsub) { try { _medsGuardianUnsub(); } catch (e) {} }
+  const uid = CareSafe.load().activeUid;
+  if (uid && window.CareSafeMeds?.subscribeFirebaseSync) {
+    _medsGuardianUnsub = window.CareSafeMeds.subscribeFirebaseSync(uid);
+  }
+}
+window.addEventListener("caresafe-auth-ready", _guardianSubscribeMeds);
+window.addEventListener("caresafe-medlog-sync", () => {
+  // 복약 sync 이벤트 → 화면 갱신
+  if (typeof render === "function") render();
+});
+CareSafe.subscribe((msg) => {
+  if (msg.type === "active" || msg.type === "ready") _guardianSubscribeMeds();
+});
+_guardianSubscribeMeds();
+
 // ===== 무소식 타임아웃 배너 =====
 // 24시간+ 신호 없으면 자동 표시. Cloud Function 없이 클라이언트에서만 동작.
 // 한계: 보호자 폰에서 페이지 열려있을 때만 동작. v1.0에서 CF 푸시로 보완.
@@ -1365,14 +1384,11 @@ async function saveSenior() {
   }
 
   try {
-    await CareSafe.save(state);
-    // Firebase 모드: qr_index도 갱신 (신규 시)
-    if (!sfEditingUid && window.CareSafeFB && existing.qrToken) {
-      try {
-        await window.CareSafeFB.writePath(`/qr_index/${existing.qrToken}`, uid);
-      } catch (e) {
-        console.warn('qr_index 쓰기 실패:', e);
-      }
+    // Codex P1 #2: 전체 save() 대신 단일 시니어 update로 변경 — 동시 알림 안전.
+    await CareSafe.saveSenior(existing);
+    if (!sfEditingUid) {
+      // 신규 시 activeUid 변경은 별도 호출
+      await CareSafe.setActive(uid);
     }
     closeSeniorForm();
     CareSafe.toast(sfEditingUid ? '응급정보 저장 완료' : '부모님 등록 완료', 'ok');

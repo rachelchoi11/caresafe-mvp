@@ -244,6 +244,28 @@
     broadcast({ type: 'active', uid });
   }
 
+  // Codex P1 #2 수정: 단일 시니어 update — 어댑터 일관 API
+  function saveSenior(senior) {
+    const state = load();
+    const idx = state.seniors.findIndex(s => s.id === senior.id);
+    if (idx >= 0) state.seniors[idx] = { ...state.seniors[idx], ...senior };
+    else state.seniors.push(senior);
+    save(state);
+    broadcast({ type: 'senior_saved', uid: senior.id });
+  }
+
+  // 단일 시니어 삭제 + 관련 알림
+  function deleteSenior(uid) {
+    const state = load();
+    state.seniors = state.seniors.filter(s => s.id !== uid);
+    state.alerts = state.alerts.filter(a => a.uid !== uid);
+    if (state.activeUid === uid) {
+      state.activeUid = state.seniors[0]?.id || null;
+    }
+    save(state);
+    broadcast({ type: 'senior_deleted', uid });
+  }
+
   // ---------- formatting ----------
   function fmtTime(ts) {
     const d = new Date(ts);
@@ -277,6 +299,7 @@
     load, save, reset,
     subscribe, broadcast,
     addAlert, setStatus, setActive,
+    saveSenior, deleteSenior,
     fmtTime, fmtClock, toast,
     _subs: subs, _fireLocal: fireLocal,
   };

@@ -1,13 +1,29 @@
 // mode-link.js — CareSafe v0.2
 //
-// 내부 페이지 링크에 ?mode= URL 파라미터 자동 보존.
-// firebase 모드에서 한 페이지 → 다른 페이지 이동 시 모드 유지.
-// 외부 URL·tel:·mailto:·앵커는 그대로.
+// 두 가지 역할:
+// 1) Production host (github.io 등)에서 첫 진입 시 ?mode=firebase 자동 강제.
+//    이유: localStorage 모드로 들어오면 stale demo 데이터 + 편집 손실 (Codex P1 #1)
+// 2) Firebase 모드에서 내부 페이지 링크에 ?mode=firebase 자동 보존.
+//    외부 URL·tel:·mailto:·앵커는 그대로.
 
 (function () {
   const params = new URLSearchParams(location.search);
-  const mode = params.get("mode");
-  if (!mode) return;  // 로컬 모드면 손댈 것 없음
+  let mode = params.get("mode");
+
+  // Production host 자동 강제 — localhost·127.0.0.1·file:// 외엔 firebase
+  const host = location.hostname;
+  const isLocal = (
+    host === "localhost" || host === "127.0.0.1" || host === "" ||
+    host.endsWith(".local")
+  );
+  if (!mode && !isLocal) {
+    // 첫 진입자 redirect — ?mode=firebase 강제. 페이지 새로고침으로 auth-guard·app-firebase 활성화.
+    const u = new URL(location.href);
+    u.searchParams.set("mode", "firebase");
+    location.replace(u.href);
+    return;
+  }
+  if (!mode) return;  // 진짜 로컬 dev면 손댈 것 없음
 
   const sameSite = (href) => {
     try {
