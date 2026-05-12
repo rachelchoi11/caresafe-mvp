@@ -65,14 +65,14 @@
       <h2>가입 현황</h2>
       <div class="set-row"><span class="k">가입일</span><span class="v" id="setJoinDate">—</span></div>
       <div class="set-row"><span class="k">계정 역할</span><span class="v" id="setRole">—</span></div>
-      <div class="set-row"><span class="k">등록한 부모님</span><span class="v" id="setSeniorCount">— 명</span></div>
+      <div class="set-row"><span class="k">등록한 돌봄대상자</span><span class="v" id="setSeniorCount">— 명</span></div>
     </div>
 
     <div class="card">
       <h2>동의 상태</h2>
       <div class="set-row"><span class="k">이용약관 동의</span><span class="v ok" id="agToS">—</span></div>
       <div class="set-row"><span class="k">개인정보 처리방침 동의</span><span class="v ok" id="agPrivacy">—</span></div>
-      <div class="set-row"><span class="k">민감정보 처리 동의</span><span class="v ok" id="agSensitive">시니어 등록 시 진술 확인</span></div>
+      <div class="set-row"><span class="k">민감정보 처리 동의</span><span class="v ok" id="agSensitive">돌봄대상자 등록 시 진술 확인</span></div>
       <div class="stack" style="margin-top:10px">
         <a class="btn ghost block" href="terms.html" target="_blank" style="text-decoration:none; text-align:center">📄 이용약관 보기</a>
         <a class="btn ghost block" href="privacy.html" target="_blank" style="text-decoration:none; text-align:center">🔒 개인정보 처리방침</a>
@@ -81,7 +81,7 @@
     </div>
 
     <div class="card">
-      <h2>등록한 부모님 목록</h2>
+      <h2>등록한 돌봄대상자 목록</h2>
       <ul id="seniorList" class="list"></ul>
       <button class="btn block" onclick="location.href='guardian.html'" style="margin-top:10px">⬅ 보호자 앱으로</button>
     </div>
@@ -106,7 +106,7 @@
 
       <div class="danger-zone">
         <h3>⚠️ 위험 영역</h3>
-        <p>계정 삭제 시 내가 등록한 부모님 정보·알림 이력·체크리스트가 모두 즉시 파기됩니다. 복구 불가.</p>
+        <p>계정 삭제 시 내가 등록한 돌봄대상자 정보·알림 이력·체크리스트가 모두 즉시 파기됩니다. 복구 불가.</p>
         <button class="btn danger" onclick="deleteAccount()">🗑 계정 삭제 (탈퇴)</button>
       </div>
     </div>
@@ -168,7 +168,7 @@ function render() {
     document.getElementById('agPrivacy').textContent = '로컬 모드';
   }
 
-  // 시니어 목록 — Codex P2 #6: XSS escape + data-* 위임
+  // 돌봄대상자 목록 — Codex P2 #6: XSS escape + data-* 위임
   document.getElementById('setSeniorCount').textContent = state.seniors.length + '명';
   const list = document.getElementById('seniorList');
   list.innerHTML = state.seniors.map(s => `
@@ -179,15 +179,15 @@ function render() {
       </div>
       <span style="color:#94A3B8; font-size:12px; align-self:center">${s.qrToken ? 'QR ✓' : 'QR ✗'}</span>
       <button class="del-senior" data-uid="${E(s.id)}" data-name="${E(s.name || '')}"
-        style="background:#FEE2E2;color:#991B1B;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-weight:700;align-self:center;font-size:13px" title="시니어 삭제">✕</button>
+        style="background:#FEE2E2;color:#991B1B;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-weight:700;align-self:center;font-size:13px" title="돌봄대상자 삭제">✕</button>
     </li>
-  `).join('') || '<li class="muted" style="padding:14px; text-align:center">등록된 부모님이 없습니다.</li>';
+  `).join('') || '<li class="muted" style="padding:14px; text-align:center">등록된 돌봄대상자이 없습니다.</li>';
 }
 
 async function deleteSenior(uid, name) {
   if (!confirm(`${name} 어르신을 등록 목록에서 삭제하시겠습니까?\n\n응급정보·QR 토큰·관련 알림이 모두 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
   try {
-    // Codex P1 #2: 전체 save() 대신 단일 시니어 삭제 API 사용 — 동시 알림 안전.
+    // Codex P1 #2: 전체 save() 대신 단일 돌봄대상자 삭제 API 사용 — 동시 알림 안전.
     await CareSafe.deleteSenior(uid);
     render();
     if (window.CareSafe?.toast) CareSafe.toast(`${name} 어르신 삭제 완료`, 'ok');
@@ -211,7 +211,7 @@ async function deleteAccount() {
     alert('로컬 모드 — 계정 삭제는 Firebase 모드에서만 가능합니다.');
     return;
   }
-  const confirmText = '내 계정과 등록한 부모님 정보를 모두 삭제합니다';
+  const confirmText = '내 계정과 등록한 돌봄대상자 정보를 모두 삭제합니다';
   const answer = prompt(`정말 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.\n\n계속하려면 아래 문구를 그대로 입력하세요:\n\n"${confirmText}"`);
   if (answer !== confirmText) {
     alert('확인 문구가 일치하지 않습니다. 취소되었습니다.');
@@ -220,13 +220,13 @@ async function deleteAccount() {
   try {
     const FB = window.CareSafeFB;
     const state = CareSafe.load();
-    // 내가 등록한 시니어 → public/private + qr_index 모두 삭제
+    // 내가 등록한 돌봄대상자 → public/private + qr_index 모두 삭제
     for (const s of state.seniors) {
       await FB.writePath(`/seniors_public/${s.id}`, null);
       await FB.writePath(`/seniors_private/${s.id}`, null);
       if (s.qrToken) await FB.writePath(`/qr_index/${s.qrToken}`, null);
     }
-    // 알림 (내 시니어 것만)
+    // 알림 (내 돌봄대상자 것만)
     const myUids = new Set(state.seniors.map(s => s.id));
     for (const a of state.alerts) {
       if (myUids.has(a.uid)) await FB.writePath(`/alerts/${a.id}`, null);
@@ -275,7 +275,7 @@ document.getElementById('pushEnableBtn')?.addEventListener('click', async () => 
   showStatus('⏳ 권한 요청 + 토큰 발급 중...', 'warn');
   const result = await window.CareSafeFB.registerPushToken();
   if (result.ok) {
-    showStatus(`✅ 푸시 알림 활성화 완료. 시니어 SOS·낙상 발생 시 자동으로 OS 알림이 도달합니다.\n토큰(앞 24자): ${result.token.slice(0, 24)}...`, 'ok');
+    showStatus(`✅ 푸시 알림 활성화 완료. 돌봄대상자 SOS·낙상 발생 시 자동으로 OS 알림이 도달합니다.\n토큰(앞 24자): ${result.token.slice(0, 24)}...`, 'ok');
   } else {
     showStatus(`❌ 등록 실패: ${result.reason}`, 'err');
   }

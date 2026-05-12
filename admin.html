@@ -75,7 +75,7 @@
     <div class="brand"><span class="brand-logo">CS</span> CareSafe <span style="font-size:12px;opacity:0.6;margin-left:auto">v0.2</span></div>
     <nav>
       <a class="active" onclick="setTab('dashboard')">📊 대시보드</a>
-      <a onclick="setTab('seniors')">👵 돌봄 대상자</a>
+      <a onclick="setTab('seniors')">👵 돌봄대상자</a>
       <a onclick="setTab('guardians')">👪 보호자 관리</a>
       <a onclick="setTab('alerts')">🔔 알림 이력</a>
       <a onclick="setTab('pilots')">🏥 체험단·병원 파이프라인</a>
@@ -100,7 +100,7 @@
     <!-- ===== Dashboard (사업계획서 검증 지표 정렬) ===== -->
     <section id="sec-dashboard" class="admin-section active">
       <div class="kpis">
-        <div class="kpi"><div class="l">활성 돌봄 대상자</div><div class="n" id="kActive">—</div><div class="d">목표 50가구</div></div>
+        <div class="kpi"><div class="l">활성 돌봄대상자</div><div class="n" id="kActive">—</div><div class="d">목표 50가구</div></div>
         <div class="kpi"><div class="l">50가구 진행률</div><div class="n" id="kProgress">—</div><div class="d" id="kProgressBar">—</div></div>
         <div class="kpi"><div class="l">오늘 알림 발생</div><div class="n" id="kToday">—</div><div class="d">평상 범위</div></div>
         <div class="kpi"><div class="l">위급 대응 대기</div><div class="n" id="kDanger">—</div><div class="d" id="kDangerD">없음</div></div>
@@ -115,7 +115,7 @@
 
       <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; margin-top:20px" id="grid">
         <div class="panel">
-          <h2>돌봄 대상자 현황 <span class="muted" style="font-weight:400">· 실시간</span></h2>
+          <h2>돌봄대상자 현황 <span class="muted" style="font-weight:400">· 실시간</span></h2>
           <table>
             <thead><tr><th>이름</th><th>지역</th><th>상태</th><th>배터리</th><th>마지막 신호</th><th>비고</th></tr></thead>
             <tbody id="seniorRowsCompact"></tbody>
@@ -129,10 +129,10 @@
       </div>
     </section>
 
-    <!-- ===== 돌봄 대상자 상세 ===== -->
+    <!-- ===== 돌봄대상자 상세 ===== -->
     <section id="sec-seniors" class="admin-section">
       <div class="panel">
-        <h2>등록된 시니어 전체</h2>
+        <h2>등록된 돌봄대상자 전체</h2>
         <table>
           <thead><tr><th>이름</th><th>나이/성별</th><th>혈액형</th><th>지역</th><th>주치의</th><th>QR</th><th>상태</th></tr></thead>
           <tbody id="seniorRowsFull"></tbody>
@@ -170,7 +170,7 @@
           </select>
         </div>
         <table>
-          <thead><tr><th>발생</th><th>시니어</th><th>유형</th><th>수준</th><th>내용</th><th>확인 여부</th></tr></thead>
+          <thead><tr><th>발생</th><th>돌봄대상자</th><th>유형</th><th>수준</th><th>내용</th><th>확인 여부</th></tr></thead>
           <tbody id="alertHistoryRows"></tbody>
         </table>
       </div>
@@ -318,7 +318,7 @@ function setTab(name) {
   document.querySelector(`.sidebar nav a[onclick*="${name}"]`)?.classList.add('active');
   const titles = {
     dashboard: '퇴원 안심 패키지 대시보드',
-    seniors: '돌봄 대상자 상세',
+    seniors: '돌봄대상자 상세',
     guardians: '보호자 계정 관리',
     alerts: '알림 이력 · 무응답 추적',
     pilots: '체험단 · 병원 파이프라인',
@@ -482,7 +482,7 @@ function render() {
     </tr>`;
   }).join('');
   document.getElementById('seniorRowsFull').innerHTML = fullRows ||
-    '<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">등록된 시니어 없음</td></tr>';
+    '<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">등록된 돌봄대상자 없음</td></tr>';
 
   // ===== 알림 피드 =====
   const feed = state.alerts.slice(0, 15);

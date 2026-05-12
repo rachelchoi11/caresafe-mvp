@@ -380,7 +380,7 @@ function render(senior) {
     let senior = await FB.readPath(`/seniors_public/${uid}`);
     if (!senior) senior = await FB.readPath(`/seniors/${uid}`);  // 구버전
     if (!senior) {
-      showError("⚠️ 시니어 정보를 찾을 수 없습니다.");
+      showError("⚠️ 돌봄대상자 정보를 찾을 수 없습니다.");
       return;
     }
     render(senior);

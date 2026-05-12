@@ -448,9 +448,9 @@
     <details class="card-collapse">
       <summary>💊 오늘 복약 현황 <span class="sum-tag" id="medsToday">— / —</span></summary>
       <div class="cc-body">
-        <div style="background:#FEF3C7; border:1px solid #FCD34D; padding:8px 12px; border-radius:8px; font-size:12px; line-height:1.5; color:#92400E; margin-bottom:10px">
-          ℹ️ 현재 시니어의 자가 체크(<strong>먹었어요</strong> 버튼) 기반.
-          스마트 약통·무게 센서·AI 음성 안부 체크인 등 <strong>자동 모니터링은 v1.5 로드맵</strong> (외부 H/W 조달).
+        <div style="background:#F0F9FF; border:1px solid #BAE6FD; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.5; color:#075985; margin-bottom:10px">
+          💡 돌봄대상자가 직접 <strong>먹었어요</strong> 버튼을 눌러 확인합니다.
+          2시간이 지나도 확인이 없으면 보호자에게 안부 권유 알림이 도착합니다.
         </div>
         <div id="medsList"></div>
       </div>
@@ -637,7 +637,7 @@
           <div class="sf-section-body">
             <p class="hint" style="margin-top:0;color:#94A3B8;font-size:11px;margin-bottom:10px">
               📍 SOS 누름 시 보호자에게 위치 정보 함께 전송. 외출 시 응급 대응에 핵심.
-              민감정보(개인정보보호법) — 시니어 본인 동의 필수. 미동의 시 텍스트 알림만 전송.
+              민감 정보(위치)는 본인 동의가 필요합니다. 미동의 시에는 위치 없이 텍스트 알림만 전송됩니다.
             </p>
             <label class="loc-toggle" id="sfLocToggleLabel">
               <input type="checkbox" id="sfLocConsent" class="loc-toggle-input">
@@ -835,7 +835,7 @@ function renderMedsStatus(senior) {
   if (!host || !window.CareSafeMeds) return;
   const slots = window.CareSafeMeds.todaySlots(senior);
   if (slots.length === 0) {
-    host.innerHTML = '<div class="muted" style="font-size:13px; padding:10px 0; text-align:center">등록된 복약 스케줄 없음 — 시니어 등록·편집에서 추가</div>';
+    host.innerHTML = '<div class="muted" style="font-size:13px; padding:10px 0; text-align:center">등록된 복약 스케줄이 없습니다. 돌봄대상자 정보 편집에서 추가해주세요.</div>';
     if (count) count.textContent = '0 / 0';
     return;
   }
@@ -1147,7 +1147,7 @@ function updateMsgContextBadge() {
 function openMsgModal() {
   const state = CareSafe.load();
   const senior = state.seniors.find(s => s.id === state.activeUid);
-  if (!senior) return alert('시니어 정보를 찾을 수 없습니다.');
+  if (!senior) return alert('돌봄대상자 정보를 찾을 수 없습니다.');
 
   const ctx = determineMessageContext(senior, state);
   const variants = (window.CareSafeMessages || {})[ctx] || (window.CareSafeMessages || {}).normal || [];
@@ -1479,7 +1479,7 @@ function sfAddAllergy(data = {}) {
   fileInput.addEventListener('change', (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (f.size > 500000) { alert('이미지가 500KB 초과 — 더 작은 파일 권장 (압축)'); }
+    if (f.size > 500000) { alert('이미지 용량이 너무 큽니다. 더 작은 파일로 시도해주세요.'); }
     const reader = new FileReader();
     reader.onload = () => { hiddenPhoto.value = reader.result; };
     reader.readAsDataURL(f);
@@ -1519,7 +1519,7 @@ function sfAddMed(data = {}) {
       <label>복용 시간 * — 시간별 등록</label>
       <div class="sf-m-times-wrap" style="display:flex;flex-direction:column;gap:6px"></div>
       <button type="button" class="sf-add-btn" style="margin-top:6px;font-size:13px" data-add-time>+ 복용 시간 추가</button>
-      <div class="hint" style="color:#94A3B8;font-size:11px;margin-top:4px">시간이 되면 시니어 디바이스에 알림 + 보호자 모니터링</div>
+      <div class="hint" style="color:#94A3B8;font-size:11px;margin-top:4px">시간이 되면 돌봄대상자에게 알림이 가고, 보호자도 함께 확인합니다</div>
     </div>
     <div class="sf-row">
       <div class="sf-field"><label>요일</label><select class="sf-m-days">
@@ -1615,7 +1615,7 @@ function sfAddMed(data = {}) {
   fileInput.addEventListener('change', (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (f.size > 500000) { alert('이미지가 500KB 초과 — 더 작은 파일 권장 (압축)'); }
+    if (f.size > 500000) { alert('이미지 용량이 너무 큽니다. 더 작은 파일로 시도해주세요.'); }
     const reader = new FileReader();
     reader.onload = () => { hiddenPhoto.value = reader.result; };
     reader.readAsDataURL(f);
@@ -2136,7 +2136,7 @@ function drawQr(text) {
 
 document.getElementById('showQrBtn').addEventListener('click', () => {
   const url = document.getElementById('showQrBtn').dataset.url;
-  if (!url) return alert('QR 토큰이 등록되지 않은 시니어입니다.');
+  if (!url) return alert('QR 토큰이 발급되지 않았습니다.');
   const box = document.getElementById('qrBox');
   if (box.style.display === 'none') {
     box.style.display = 'block';
@@ -2179,7 +2179,7 @@ document.getElementById('nfcWriteBtn').addEventListener('click', async () => {
   const state = CareSafe.load();
   const senior = state.seniors.find(s => s.id === state.activeUid);
   if (!senior?.qrToken) {
-    showStatus('⚠️ 응급카드 토큰이 발급되지 않은 시니어입니다. 시니어 등록 후 다시 시도하세요.', true);
+    showStatus('⚠️ 응급카드 QR/NFC가 아직 발급되지 않았습니다. 돌봄대상자 등록 후 다시 시도해주세요.', true);
     return;
   }
 
@@ -2211,7 +2211,7 @@ document.getElementById('nfcWriteBtn').addEventListener('click', async () => {
 document.getElementById('revokeQrBtn').addEventListener('click', async () => {
   const state = CareSafe.load();
   const senior = state.seniors.find(s => s.id === state.activeUid);
-  if (!senior) return alert('활성 시니어가 없습니다.');
+  if (!senior) return alert('선택된 돌봄대상자가 없습니다.');
   const ok = confirm(
     `[${senior.name}] 어르신의 QR 토큰을 재발급합니다.\n\n` +
     `· 새 토큰이 즉시 발급되어 새 QR/NFC 카드가 작동합니다.\n` +
