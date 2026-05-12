@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>센서·하드웨어 연결 테스트 · CareSafe</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  body.page { background:#F8FAFC; }
+  .test-shell { max-width:760px; margin:0 auto; padding:24px 16px 80px; }
+  .test-shell h1 { font-size:22px; margin:0 0 6px; color:#0F172A; }
+  .test-shell .sub { color:#64748B; font-size:13px; margin-bottom:20px; }
+  .test-section {
+    background:white; border-radius:14px; padding:18px; margin-bottom:14px;
+    border:1px solid #E2E8F0;
+  }
+  .test-section h2 {
+    margin:0 0 10px; font-size:16px; color:#0F172A;
+    display:flex; align-items:center; gap:8px;
+  }
+  .test-section .status-tag {
+    font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px;
+    margin-left:auto;
+  }
+  .status-tag.ok { background:#DCFCE7; color:#166534; }
+  .status-tag.warn { background:#FEF3C7; color:#92400E; }
+  .status-tag.bad { background:#FEE2E2; color:#991B1B; }
+  .test-section p { color:#475569; font-size:13px; line-height:1.6; margin:6px 0; }
+  .test-section code, .code-block {
+    background:#0F172A; color:#E2E8F0; font-family:ui-monospace,Menlo,monospace;
+    font-size:12px; padding:10px; border-radius:8px; overflow:auto;
+    line-height:1.5; white-space:pre-wrap; word-break:break-all;
+  }
+  .test-section code { padding:2px 6px; font-size:11px; }
+  .test-log {
+    background:#0F172A; color:#E2E8F0; font-family:ui-monospace,Menlo,monospace;
+    font-size:12px; padding:10px; border-radius:8px; max-height:200px; overflow:auto;
+    line-height:1.5; min-height:60px; white-space:pre-wrap; word-break:break-all;
+  }
+  .test-btn {
+    background:#0A9396; color:white; border:none; padding:10px 16px;
+    border-radius:8px; font-size:14px; font-weight:600; cursor:pointer;
+    font-family:inherit; margin-right:8px; margin-bottom:6px;
+  }
+  .test-btn.danger { background:#DC2626; }
+  .test-btn.ghost { background:white; color:#475569; border:1px solid #E2E8F0; }
+  .test-btn:disabled { background:#94A3B8; cursor:not-allowed; }
+  .field {
+    display:flex; align-items:center; gap:8px; margin-bottom:8px;
+  }
+  .field label { color:#64748B; font-size:12px; font-weight:600; min-width:80px; }
+  .field input, .field select, .field textarea {
+    flex:1; padding:8px 10px; border:1px solid #E2E8F0; border-radius:8px;
+    font-size:13px; font-family:inherit;
+  }
+  .field textarea { min-height:80px; font-family:ui-monospace,Menlo,monospace; font-size:11px; }
+  .matrix {
+    width:100%; border-collapse:collapse; font-size:12px;
+  }
+  .matrix th, .matrix td { padding:8px; text-align:left; border-bottom:1px solid #F1F5F9; }
+  .matrix th { background:#F8FAFC; color:#475569; font-weight:700; }
+  .matrix .yes { color:#16a34a; font-weight:700; }
+  .matrix .no { color:#DC2626; font-weight:700; }
+  .matrix .partial { color:#F59E0B; font-weight:700; }
+</style>
+</head>
+<body class="page">
+<div class="test-shell">
+  <a href="index.html" style="color:#64748B;text-decoration:none">← 메인</a>
+  <h1>🔌 센서·하드웨어 연결 테스트</h1>
+  <div class="sub">애플 워치·갤럭시 워치·BLE 센서·IoT 디바이스 직접 연결 가능성 + 데모. CareSafe v0.2 베타.</div>
+
+  <!-- ===== Section 0: 호환 매트릭스 ===== -->
+  <div class="test-section">
+    <h2>📊 하드웨어 호환 매트릭스</h2>
+    <table class="matrix">
+      <thead><tr><th>디바이스</th><th>웹 직접</th><th>우회법</th><th>현실적 권장</th></tr></thead>
+      <tbody>
+        <tr><td>애플 워치</td><td class="no">❌</td><td>iOS 단축어 → HTTP POST</td><td>네이티브 앱 (v2.0)</td></tr>
+        <tr><td>갤럭시 워치 (Wear OS)</td><td class="no">❌</td><td>Tasker 앱 → HTTP POST</td><td>네이티브 앱 (v2.0)</td></tr>
+        <tr><td>BLE 심박·온도 센서</td><td class="yes">✅ Web Bluetooth</td><td>—</td><td>Chrome 데스크탑·Android Chrome</td></tr>
+        <tr><td>ESP32·아두이노 IoT</td><td class="yes">✅ HTTP POST</td><td>—</td><td>Firebase REST API 직접</td></tr>
+        <tr><td>LTE-M SOS 버튼 (전용)</td><td class="yes">✅ HTTP POST</td><td>—</td><td>사업계획서 보급형 채택</td></tr>
+        <tr><td>WiFi CSI 센싱 노드</td><td class="yes">✅ REST/Firebase</td><td>—</td><td>사업계획서 고급형 (외주)</td></tr>
+        <tr><td>스마트 약통 (해외)</td><td class="partial">⚠ 제조사 의존</td><td>제조사 API 연동</td><td>국내 호환 모델 검토 중</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:10px;color:#94A3B8;font-size:11px">
+      ✅ 직접 가능 · ⚠ 부분 가능 · ❌ 웹만으론 불가 (네이티브 앱 또는 우회 필요)
+    </p>
+  </div>
+
+  <!-- ===== Section 1: Web Bluetooth 데모 ===== -->
+  <div class="test-section">
+    <h2>1️⃣ Web Bluetooth — BLE 센서 직접 연결
+      <span class="status-tag warn" id="bluetoothStatus">확인 중…</span>
+    </h2>
+    <p>Chrome·Edge 데스크탑 또는 Android Chrome에서만 동작. iOS Safari는 미지원. 표준 GATT 프로필 (심박계 0x180D, 배터리 0x180F 등) 지원 BLE 디바이스를 페어링·읽기 데모.</p>
+    <div style="margin:10px 0">
+      <button class="test-btn" onclick="scanBLE()">🔵 BLE 디바이스 검색·연결</button>
+      <button class="test-btn ghost" onclick="disconnectBLE()">연결 해제</button>
+    </div>
+    <div class="test-log" id="bleLog">대기 중…</div>
+  </div>
+
+  <!-- ===== Section 2: HTTP Webhook 테스트 ===== -->
+  <div class="test-section">
+    <h2>2️⃣ HTTP POST Webhook — IoT 디바이스 시뮬
+      <span class="status-tag ok">동작</span>
+    </h2>
+    <p>외부 디바이스(ESP32·SOS 버튼·WiFi 센싱 등)가 Firebase REST API로 직접 알림 발사. 운영 시 Firebase ID 토큰 또는 Cloud Function 프록시로 인증. 아래는 데모용 (로컬 모드 또는 인증된 사용자).</p>
+    <div class="field">
+      <label>시니어 ID</label>
+      <input id="whUid" value="u1" placeholder="u1">
+    </div>
+    <div class="field">
+      <label>알림 유형</label>
+      <select id="whType">
+        <option value="sos">sos (위급)</option>
+        <option value="fall">fall (낙상 의심)</option>
+        <option value="medication">medication (복약)</option>
+        <option value="activity">activity (정상)</option>
+        <option value="inactivity">inactivity (비활동)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>위급도</label>
+      <select id="whLevel">
+        <option value="danger">danger</option>
+        <option value="warn">warn</option>
+        <option value="ok">ok</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>메시지</label>
+      <input id="whText" value="🌐 외부 센서 트리거 — 테스트">
+    </div>
+    <button class="test-btn" onclick="firePOST()">📤 POST 발사 (로컬 + Firebase)</button>
+    <div class="test-log" id="whLog">대기 중…</div>
+
+    <h3 style="margin-top:14px;font-size:13px;color:#0F172A">외부 디바이스 통합 가이드</h3>
+    <p style="font-size:12px">실제 IoT 디바이스에서 Firebase RTDB로 직접 알림 POST하는 패턴:</p>
+    <div class="code-block">POST https://caresafe-mvp-default-rtdb.asia-southeast1.firebasedatabase.app/alerts.json?auth=&lt;ID_TOKEN&gt;
+Content-Type: application/json
+
+{
+  "uid": "u1",
+  "type": "sos",
+  "level": "danger",
+  "text": "🆘 LTE-M 버튼 눌림",
+  "time": 1747000000000,
+  "location": {
+    "address": "서울 강남구",
+    "lat": 37.4979,
+    "lng": 127.0276,
+    "accuracy": 50,
+    "source": "device"
+  }
+}
+
+# 응답: { "name": "-Oxxx..." }  ← Firebase 자동 생성 키</div>
+    <p style="font-size:11px;color:#94A3B8;margin-top:6px">
+      ⚠️ ID_TOKEN은 Firebase Authentication 또는 Service Account로 발급. 운영 시 Cloud Function 프록시 권장 (보안·rate limit).
+    </p>
+  </div>
+
+  <!-- ===== Section 3: 워치 단축어 가이드 ===== -->
+  <div class="test-section">
+    <h2>3️⃣ 애플 워치 단축어 (Shortcuts) 우회
+      <span class="status-tag partial">우회 가능</span>
+    </h2>
+    <p>iOS 단축어 앱으로 워치에서 직접 우리 webhook 호출하는 방법. SOS 알림 흉내 가능.</p>
+    <ol style="font-size:13px; color:#475569; line-height:1.7">
+      <li>iPhone → 단축어 앱 → 새 단축어 만들기</li>
+      <li>“URL의 내용 가져오기” 동작 추가</li>
+      <li>URL: 위 webhook 주소 (Firebase REST)</li>
+      <li>방식: POST · 본문: JSON (uid·type 등)</li>
+      <li>단축어 우상단 ⚙️ → “Apple Watch에서 사용” ON</li>
+      <li>워치 컴플리케이션 또는 단축어 앱에서 SOS 트리거</li>
+    </ol>
+    <p style="font-size:12px;color:#94A3B8;margin-top:6px">
+      한계: 단축어는 Wi-Fi/LTE 연결 + 폰 근거리 필요. 워치 단독 동작은 정식 앱 필요.
+    </p>
+  </div>
+
+  <!-- ===== Section 3-B: 애플 워치 헬스 데이터 ===== -->
+  <div class="test-section">
+    <h2>3️⃣-B 애플 워치 헬스 데이터 (낙상·심박·ECG·SpO2)
+      <span class="status-tag partial">간접만</span>
+    </h2>
+    <p>애플 워치 자체 센서·기능 → CareSafe 연동 가능성:</p>
+
+    <table class="matrix" style="margin:8px 0">
+      <thead><tr><th>워치 기능</th><th>직접 연동</th><th>현실적 경로</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>🍎 <strong>낙상 감지</strong> (Series 4+)</td>
+          <td class="no">❌</td>
+          <td>워치 → 119 자동 신고 + <strong>응급 연락처에 SMS</strong> (Apple 기본)<br>→ 응급 연락처에 보호자 등록만 하면 메시지 수신 가능</td>
+        </tr>
+        <tr>
+          <td>❤️ <strong>심박 비정상 알림</strong></td>
+          <td class="no">❌</td>
+          <td>워치 자체 알림 → 단축어로 우리 webhook에 수동 push<br>또는 <strong>HealthFit·Cardiogram</strong> 같은 3rd party 앱이 HealthKit 데이터를 외부 webhook으로 자동 전송</td>
+        </tr>
+        <tr>
+          <td>🫁 <strong>SpO2 (혈중산소)</strong></td>
+          <td class="no">❌</td>
+          <td>위와 동일 — HealthKit 경유 3rd party 앱</td>
+        </tr>
+        <tr>
+          <td>⚡ <strong>심전도(ECG)</strong></td>
+          <td class="no">❌</td>
+          <td>측정 후 PDF 내보내기 → 보호자 공유 (수동)</td>
+        </tr>
+        <tr>
+          <td>🛌 <strong>수면 분석</strong></td>
+          <td class="no">❌</td>
+          <td>HealthFit 등으로 일간 요약 webhook 전송 가능</td>
+        </tr>
+        <tr>
+          <td>🆘 <strong>워치 SOS 호출</strong> (사이드 버튼 길게)</td>
+          <td class="no">❌</td>
+          <td>워치 → 119 자동 신고 + 응급 연락처 SMS — Apple 기본 동작. CareSafe 직접 통합 ❌</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="font-size:13px; margin-top:14px; color:#0F172A">💡 가장 현실적인 통합 패턴 3가지</h3>
+
+    <p style="font-size:13px"><strong>A. Apple 기본 응급 연락처 활용 (0원, 즉시)</strong></p>
+    <ul style="font-size:12px; color:#475569; line-height:1.6; margin-top:4px">
+      <li>워치/폰 설정 → 의료ID·응급 연락처에 <strong>보호자 번호 등록</strong></li>
+      <li>워치 낙상 감지·SOS 호출 시 119 자동 + 보호자에게 SMS 자동 발송</li>
+      <li>CareSafe 안 거치지만 가장 안전한 1차 안전망</li>
+    </ul>
+
+    <p style="font-size:13px;margin-top:10px"><strong>B. 3rd party 브릿지 앱 (HealthFit·Health Auto Export 등)</strong></p>
+    <ul style="font-size:12px; color:#475569; line-height:1.6; margin-top:4px">
+      <li>유저가 앱 설치 + HealthKit 권한 부여</li>
+      <li>심박·SpO2·수면·걸음 데이터를 <strong>외부 webhook으로 자동 전송</strong></li>
+      <li>우리 Cloud Function이 받아서 알림·차트화 (v1.0+)</li>
+      <li>장점: 우리 native 앱 개발 없이 워치 데이터 수신</li>
+      <li>한계: 사용자가 별도 앱 설치 필요. 실시간 ✗ (배치 push)</li>
+    </ul>
+
+    <p style="font-size:13px;margin-top:10px"><strong>C. CareSafe iOS 네이티브 앱 (v2.0+)</strong></p>
+    <ul style="font-size:12px; color:#475569; line-height:1.6; margin-top:4px">
+      <li>HealthKit 직접 권한 → 모든 워치 데이터 실시간 접근</li>
+      <li>이상치 자동 감지·보호자에게 즉시 알림</li>
+      <li>비용: 앱 개발·App Store 심사·HealthKit 의료 데이터 정책 검토</li>
+    </ul>
+
+    <div style="background:#FEF3C7; border:1px solid #FCD34D; padding:10px 12px; border-radius:8px; margin-top:14px; font-size:12px; line-height:1.6; color:#92400E">
+      <strong>⚠️ 워치 SOS·낙상 감지 자체는 Apple 기본 기능이라 CareSafe 우회 ❌.</strong><br>
+      파일럿 단계 권장: 보호자가 부모님 폰·워치의 <strong>의료ID/응급 연락처</strong>에 보호자 번호 등록 → Apple 자동 알림망 활성화. CareSafe는 이와 별개의 보조 안전망.
+    </div>
+  </div>
+
+  <!-- ===== Section 4: 갤럭시 워치 Tasker 가이드 ===== -->
+  <div class="test-section">
+    <h2>4️⃣ 갤럭시 워치 Tasker 우회
+      <span class="status-tag partial">우회 가능</span>
+    </h2>
+    <p>Android Tasker (유료 앱)로 워치 입력 → HTTP POST 자동화. Wear OS 워치도 가능.</p>
+    <ol style="font-size:13px; color:#475569; line-height:1.7">
+      <li>안드로이드 폰에 Tasker 설치</li>
+      <li>‘새 작업’ → HTTP POST 동작 추가 (Net 카테고리)</li>
+      <li>URL·헤더·본문 위 webhook 형식대로 설정</li>
+      <li>트리거: 워치 버튼·음성 명령·앱 알림 등</li>
+      <li>Wear OS 앱(AutoWear)으로 워치에서 직접 트리거</li>
+    </ol>
+  </div>
+
+  <!-- ===== Section 5: 로드맵 ===== -->
+  <div class="test-section">
+    <h2>5️⃣ 정식 하드웨어 통합 로드맵</h2>
+    <table class="matrix">
+      <thead><tr><th>버전</th><th>지원 디바이스</th><th>방식</th></tr></thead>
+      <tbody>
+        <tr><td>v0.2 (현재)</td><td>웹 시뮬레이터만</td><td>localStorage / Firebase RTDB</td></tr>
+        <tr><td>v1.0</td><td>LTE-M SOS 버튼, BLE 센서</td><td>Cloud Function 프록시 + HTTP POST</td></tr>
+        <tr><td>v1.5</td><td>WiFi CSI 센싱, 스마트 약통</td><td>외주 H/W + Firebase 직접 push</td></tr>
+        <tr><td>v2.0</td><td>애플워치·갤럭시워치 native app</td><td>HealthKit / Samsung Health 연동</td></tr>
+        <tr><td>v3.0+</td><td>의료기기 인증 (필요 시)</td><td>FDA/식약처 등급 검토</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script src="mode-link.js"></script>
+<script>
+// ===== Web Bluetooth =====
+const log = (id, msg) => {
+  const el = document.getElementById(id);
+  const t = new Date().toLocaleTimeString('ko-KR');
+  el.textContent = `[${t}] ${msg}\n` + el.textContent;
+};
+
+(function checkBLE() {
+  const tag = document.getElementById('bluetoothStatus');
+  if (!('bluetooth' in navigator)) {
+    tag.textContent = '브라우저 미지원';
+    tag.className = 'status-tag bad';
+  } else {
+    navigator.bluetooth.getAvailability().then(ok => {
+      tag.textContent = ok ? '사용 가능' : '디바이스 OFF';
+      tag.className = ok ? 'status-tag ok' : 'status-tag warn';
+    });
+  }
+})();
+
+let bleDevice = null;
+async function scanBLE() {
+  log('bleLog', '⏳ BLE 디바이스 검색 시작…');
+  try {
+    if (!navigator.bluetooth) throw new Error('이 브라우저는 Web Bluetooth 미지원 — Chrome 데스크탑·Android Chrome 사용');
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [
+        { services: ['heart_rate'] },          // 심박계
+        { services: ['battery_service'] },      // 배터리 (보편)
+        { services: ['device_information'] },   // 디바이스 정보
+      ],
+      optionalServices: ['heart_rate', 'battery_service', 'device_information'],
+    });
+    log('bleLog', `✅ 선택됨: ${bleDevice.name || '(이름 없음)'} · ID: ${bleDevice.id}`);
+
+    const server = await bleDevice.gatt.connect();
+    log('bleLog', '🔗 GATT 서버 연결됨');
+
+    // 심박 시도
+    try {
+      const hrService = await server.getPrimaryService('heart_rate');
+      const hrChar = await hrService.getCharacteristic('heart_rate_measurement');
+      await hrChar.startNotifications();
+      hrChar.addEventListener('characteristicvaluechanged', (e) => {
+        const v = e.target.value;
+        const flags = v.getUint8(0);
+        const hr = (flags & 1) ? v.getUint16(1, true) : v.getUint8(1);
+        log('bleLog', `❤️ 심박: ${hr} bpm`);
+        if (hr > 130 || hr < 40) {
+          log('bleLog', '⚠️ 비정상 심박 감지 → 알림 발사 후보 (CareSafe.addAlert 연동 가능)');
+        }
+      });
+      log('bleLog', '✓ 심박 측정 구독 시작 (값 들어오면 자동 표시)');
+    } catch (e) {
+      log('bleLog', 'ℹ️ 심박 서비스 없음 (정상 — 모든 BLE가 심박 X)');
+    }
+
+    // 배터리 시도
+    try {
+      const battService = await server.getPrimaryService('battery_service');
+      const battChar = await battService.getCharacteristic('battery_level');
+      const battValue = await battChar.readValue();
+      log('bleLog', `🔋 디바이스 배터리: ${battValue.getUint8(0)}%`);
+    } catch (e) { /* 무시 */ }
+
+    bleDevice.addEventListener('gattserverdisconnected', () => {
+      log('bleLog', '⏹ GATT 서버 연결 해제됨');
+    });
+  } catch (e) {
+    log('bleLog', `❌ ${e.message || e}`);
+  }
+}
+
+function disconnectBLE() {
+  if (bleDevice && bleDevice.gatt.connected) {
+    bleDevice.gatt.disconnect();
+    log('bleLog', '⏹ 연결 해제');
+  } else {
+    log('bleLog', 'ℹ️ 연결된 디바이스 없음');
+  }
+}
+
+// ===== HTTP POST Webhook =====
+async function firePOST() {
+  const uid = document.getElementById('whUid').value.trim();
+  const type = document.getElementById('whType').value;
+  const level = document.getElementById('whLevel').value;
+  const text = document.getElementById('whText').value.trim();
+  if (!uid || !text) { log('whLog', '⚠️ uid·text 필수'); return; }
+
+  // 1. 로컬 모드 — CareSafe.addAlert 직접 호출
+  try {
+    CareSafe.addAlert({ uid, type, level, text });
+    log('whLog', `✅ 로컬 알림 발사: ${type} · ${level} · ${text}`);
+  } catch (e) {
+    log('whLog', `❌ 로컬 발사 실패: ${e.message}`);
+  }
+
+  // 2. Firebase REST 직접 POST 시뮬레이션
+  const params = new URLSearchParams(location.search);
+  if (params.get('mode') !== 'firebase') {
+    log('whLog', 'ℹ️ Firebase REST POST는 ?mode=firebase 로 접속 시 시도');
+    return;
+  }
+  try {
+    if (!window.CareSafeFB?.auth?.currentUser) {
+      log('whLog', '⏳ 로그인 대기 중 — 잠시 후 다시 시도');
+      return;
+    }
+    const idToken = await window.CareSafeFB.auth.currentUser.getIdToken();
+    const dbUrl = window.CareSafeFB.app.options.databaseURL.replace(/\/$/, '');
+    const url = `${dbUrl}/alerts.json?auth=${idToken}`;
+    const payload = {
+      uid, type, level, text,
+      time: Date.now(),
+      source: 'webhook-test',
+    };
+    log('whLog', `📤 POST → ${url.slice(0, 80)}…`);
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (r.ok) log('whLog', `✅ Firebase REST 성공 · key: ${data.name}`);
+    else log('whLog', `❌ Firebase REST 실패 (${r.status}): ${JSON.stringify(data)}`);
+  } catch (e) {
+    log('whLog', `❌ REST POST 실패: ${e.message || e}`);
+  }
+}
+</script>
+<script type="module" src="firebase.js"></script>
+</body>
+</html>
