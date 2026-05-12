@@ -112,8 +112,25 @@
     <div class="card">
       <h2>🆘 SOS 버튼 (물리 버튼 에뮬레이션)</h2>
       <p class="muted" style="margin-bottom:12px; font-size:13px">
-        시니어가 직접 만지는 유일한 디바이스. 짧게 누르면 ‘도움 요청(주의)’, 3초 길게 누르면 ‘위급 호출(긴급)’.
+        시니어가 직접 만지는 유일한 디바이스 (목걸이형/휴대폰). 짧게 = 도움 요청, 3초 길게 = 위급 호출.
       </p>
+
+      <div class="sf-field" style="margin-bottom:10px">
+        <label style="font-size:12px; font-weight:600; color:#475569; margin-bottom:4px; display:block">
+          📍 위치 시뮬 (목걸이 버튼 외출 가정)
+        </label>
+        <select id="locSelect" style="width:100%; padding:8px 10px; border:1px solid #E2E8F0; border-radius:8px; font-size:13px; font-family:inherit;">
+          <option value="home">🏠 자택 (서울 강남구)</option>
+          <option value="park">🌳 인근 공원 (강남대로 산책로)</option>
+          <option value="subway">🚇 지하철 (강남역 부근)</option>
+          <option value="cafe">☕ 카페 (역삼동)</option>
+          <option value="hospital">🏥 병원 외래 (강남세브란스)</option>
+          <option value="market">🛒 시장 (역삼시장)</option>
+          <option value="street">🛣️ 도로변 (외출 중)</option>
+          <option value="none">❌ 위치 미첨부 (동의 없음 가정)</option>
+        </select>
+      </div>
+
       <div class="sos-wrap">
         <button class="sos-btn" id="sosBtn" aria-label="SOS 버튼 — 누르고 있으세요">SOS</button>
         <div class="sos-hint" id="sosHint">한 번 누름 = 도움 요청 · 3초 길게 누름 = 위급 호출</div>
@@ -232,12 +249,41 @@ const PRESETS = {
   no_signal:     { type: 'inactivity',  level: 'warn',   text: '🌙 24시간 무소식 — 보호자 안부 전화 권유' },
 };
 
+// 위치 시뮬레이션 데이터 — 실제 운영에선 디바이스 GPS·셀룰러 측위
+const LOCATIONS = {
+  home:     { address: '서울 강남구 자택', lat: 37.4979, lng: 127.0276, accuracy: 5 },
+  park:     { address: '강남대로 산책로 인근', lat: 37.4994, lng: 127.0282, accuracy: 15 },
+  subway:   { address: '지하철 강남역 2번 출구 부근', lat: 37.4979, lng: 127.0276, accuracy: 30 },
+  cafe:     { address: '역삼동 카페 부근', lat: 37.5012, lng: 127.0364, accuracy: 20 },
+  hospital: { address: '강남세브란스병원 외래 부근', lat: 37.4929, lng: 127.0107, accuracy: 10 },
+  market:   { address: '역삼시장 부근', lat: 37.5019, lng: 127.0341, accuracy: 25 },
+  street:   { address: '강남대로 도로변 (외출 중)', lat: 37.5043, lng: 127.0287, accuracy: 40 },
+};
+
+function _getCurrentLocation() {
+  const sel = document.getElementById('locSelect');
+  const key = sel ? sel.value : 'home';
+  if (key === 'none') return null;
+  const loc = LOCATIONS[key];
+  if (!loc) return null;
+  return { ...loc, source: 'device', ts: Date.now() };
+}
+
 function trigger(kind) {
   const state = CareSafe.load();
   const preset = PRESETS[kind];
   if (!preset) return;
-  CareSafe.addAlert({ uid: state.activeUid, type: preset.type, level: preset.level, text: preset.text });
-  CareSafe.toast('이벤트 전송됨 → 보호자에게 알림', preset.level);
+  const alert = { uid: state.activeUid, type: preset.type, level: preset.level, text: preset.text };
+
+  // 위치 첨부 (시니어가 동의했고 위치 정보가 있을 때만)
+  const senior = state.seniors.find(s => s.id === state.activeUid);
+  const consented = senior?.locationConsent !== false;  // 기본 동의 (toggle off 시만 미첨부)
+  if (consented && preset.type === 'sos') {
+    const loc = _getCurrentLocation();
+    if (loc) alert.location = loc;
+  }
+  CareSafe.addAlert(alert);
+  CareSafe.toast('이벤트 전송됨 → 보호자에게 알림' + (alert.location ? ` (위치: ${alert.location.address})` : ''), preset.level);
 }
 
 // ===== SOS 짧게 / 길게 분기 =====

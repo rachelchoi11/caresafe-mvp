@@ -149,7 +149,7 @@ function installFirebaseAdapter(FB) {
     "advanceDirective","recentHistory","cognitiveBaseline","implants",
     "assistiveDevices","qrToken"
   ]);
-  const _PRIVATE_KEYS = new Set(["status","battery","lastPing","note","guardian","phone"]);
+  const _PRIVATE_KEYS = new Set(["status","battery","lastPing","note","guardian","phone","locationConsent"]);
 
   function _splitSeniorObj(s) {
     const pub = {}, prv = {};

@@ -455,6 +455,23 @@
           </div>
         </details>
 
+        <details class="sf-section">
+          <summary>위치 추적 동의 (SOS 시) <span class="opt">권장</span></summary>
+          <div class="sf-section-body">
+            <p class="hint" style="margin-top:0;color:#94A3B8;font-size:11px;margin-bottom:10px">
+              📍 SOS 누름 시 보호자에게 위치 정보 함께 전송. 외출 시 응급 대응에 핵심.
+              민감정보(개인정보보호법) — 시니어 본인 동의 필수. 미동의 시 텍스트 알림만 전송.
+            </p>
+            <div class="sf-field">
+              <label>위치 추적 동의</label>
+              <select id="sfLocConsent">
+                <option value="true">동의 (위치 함께 전송) — 권장</option>
+                <option value="false">미동의 (텍스트 알림만)</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
         <div style="background:#FEF3C7;border:1px solid #FCD34D;padding:12px;border-radius:10px;margin-top:8px;font-size:12px;line-height:1.6;color:#92400E">
           📋 <strong>민감 의료정보 처리 동의</strong><br>
           본 정보는 보호자의 명시적 동의 하에 응급카드(QR/NFC) 및 대응가이드에서 사용됩니다.
@@ -547,15 +564,21 @@ function render() {
   // alerts (클릭 시 대응가이드 모달 — AI 변형 매칭)
   const mine = state.alerts.filter(a => a.uid === active.id).slice(0, 6);
   const ul = document.getElementById('alertList');
-  ul.innerHTML = mine.map(a => `
+  ul.innerHTML = mine.map(a => {
+    const locHtml = a.location && a.location.address
+      ? `<div class="s" style="color:#0F766E"><a href="https://maps.google.com/?q=${a.location.lat},${a.location.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none;color:#0F766E">📍 ${a.location.address}</a></div>`
+      : '';
+    return `
     <li class="list-item alert-clickable ${a.level}" onclick="openGuideForAlert('${a.id}')">
       <div class="icon">${ICONS[a.type] || '🔔'}</div>
       <div class="body">
         <div class="t">${a.text}</div>
         <div class="s">${CareSafe.fmtTime(a.time)} · <span class="pill ${a.level}">${LEVEL_TEXT[a.level]}</span></div>
+        ${locHtml}
       </div>
       <span class="alert-chevron">대응가이드 ›</span>
-    </li>`).join('') || '<li class="muted" style="padding:16px; text-align:center">아직 알림이 없습니다</li>';
+    </li>`;
+  }).join('') || '<li class="muted" style="padding:16px; text-align:center">아직 알림이 없습니다</li>';
   document.getElementById('alertCount').textContent = mine.length + '건';
 
   // switcher
@@ -887,6 +910,7 @@ function openSeniorForm(uid) {
   setVal('sfDocPhone', ''); setVal('sfDocErPhone', '');
   setVal('sfDnrRegistered', 'false'); setVal('sfDnrNumber', '');
   setVal('sfCog', 'alert'); setVal('sfAssistive', '');
+  setVal('sfLocConsent', 'true');
 
   document.getElementById('sfContacts').innerHTML = '';
   document.getElementById('sfAllergies').innerHTML = '';
@@ -920,6 +944,7 @@ function openSeniorForm(uid) {
     }
     setVal('sfCog', senior.cognitiveBaseline || 'alert');
     setVal('sfAssistive', (senior.assistiveDevices || []).join(', '));
+    setVal('sfLocConsent', senior.locationConsent === false ? 'false' : 'true');
     (senior.emergencyContacts || []).forEach(c => sfAddContact(c));
     (senior.allergies || []).forEach(a => sfAddAllergy(typeof a === 'string' ? { agent: a } : a));
     (senior.meds || []).forEach(m => sfAddMed(m));
@@ -1086,6 +1111,7 @@ function _sfCollect() {
     implants: [],
     assistiveDevices: document.getElementById('sfAssistive').value
       .split(',').map(s => s.trim()).filter(Boolean),
+    locationConsent: document.getElementById('sfLocConsent').value !== 'false',
   };
 
   // 주치의

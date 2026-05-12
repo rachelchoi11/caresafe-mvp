@@ -319,6 +319,9 @@ function render() {
     list.forEach(a => {
       const senior = state.seniors.find(s => s.id === a.uid);
       const noAck = !a.ack_ts && (now - a.time) > 24*3600*1000;
+      const locHtml = a.location && a.location.address
+        ? `<div class="meta" style="margin-top:2px"><a href="https://maps.google.com/?q=${a.location.lat},${a.location.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none;color:#0F766E;font-size:12px">📍 ${a.location.address}</a></div>`
+        : '';
       html += `
         <div class="alert-row ${a.level} ${noAck ? 'no-ack' : ''}" onclick="openGuideForAlert('${a.id}')">
           <div class="ic">${ICONS[a.type] || '🔔'}</div>
@@ -330,6 +333,7 @@ function render() {
               <span>🕐 ${fmtTime(a.time)}</span>
               <span class="ack ${a.ack_ts ? '' : 'no'}">${a.ack_ts ? '✓ 확인' : (noAck ? '⚠ 미확인' : '미확인')}</span>
             </div>
+            ${locHtml}
           </div>
         </div>`;
     });
