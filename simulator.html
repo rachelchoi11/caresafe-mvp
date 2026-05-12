@@ -116,7 +116,7 @@
       </p>
       <div class="sos-wrap">
         <button class="sos-btn" id="sosBtn" aria-label="SOS 버튼 — 누르고 있으세요">SOS</button>
-        <div class="sos-hint" id="sosHint">눌러서 도움 요청 · 3초 길게 = 위급</div>
+        <div class="sos-hint" id="sosHint">한 번 누름 = 도움 요청 · 3초 길게 누름 = 위급 호출</div>
         <div class="sos-progress-wrap" id="sosProgWrap" style="display:none">
           <div class="sos-progress-bar"><div id="sosProgBar"></div></div>
           <div class="sos-progress-label" id="sosProgLabel">누르고 있음…</div>
@@ -240,11 +240,9 @@ function trigger(kind) {
 }
 
 // ===== SOS 짧게 / 길게 분기 =====
-// 누르고 있는 시간:
-//   - 0~1초: 무시 (실수 방지)
-//   - 1~3초: 도움 요청 (warn)
+// 원칙: 시니어 누름은 모두 보호자에게 전달. 응급 판단은 보호자 몫.
+//   - 0~3초: 도움 요청 (warn) — 모든 누름 포함
 //   - 3초+ : 위급 호출 (danger)
-const SOS_IGNORE_MS = 1000;
 const SOS_URGENT_MS = 3000;
 let sosPressStart = null;
 let sosTickTimer = null;
@@ -271,10 +269,8 @@ function sosTick() {
   const elapsed = Date.now() - sosPressStart;
   const pct = Math.min(100, (elapsed / SOS_URGENT_MS) * 100);
   sosProgBar.style.width = pct + '%';
-  if (elapsed < SOS_IGNORE_MS) {
-    sosProgLabel.textContent = '계속 누르세요…';
-  } else if (elapsed < SOS_URGENT_MS) {
-    sosProgLabel.textContent = `도움 요청 준비 · 위급은 3초 (현재 ${(elapsed/1000).toFixed(1)}초)`;
+  if (elapsed < SOS_URGENT_MS) {
+    sosProgLabel.textContent = `도움 요청 (지금 떼면 전송) · 3초 길게 누르면 위급 (현재 ${(elapsed/1000).toFixed(1)}초)`;
   } else {
     sosProgLabel.textContent = '⚠️ 위급 호출 활성 — 손 떼면 전송';
     sosProgBar.classList.add('danger');
@@ -293,9 +289,8 @@ function sosEnd(e) {
   sosProgBar.style.width = '0%';
   sosProgBar.classList.remove('danger');
 
-  if (elapsed < SOS_IGNORE_MS) {
-    CareSafe.toast('너무 짧게 눌렸습니다 (실수 방지 — 1초 이상 누르세요)', 'warn');
-  } else if (elapsed < SOS_URGENT_MS) {
+  // 시니어 누름은 모두 보호자에게 전달 — 확인은 보호자 판단
+  if (elapsed < SOS_URGENT_MS) {
     trigger('sos_help');
   } else {
     trigger('sos_urgent');
