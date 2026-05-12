@@ -71,6 +71,41 @@
     margin-top:6px; font-size:12px; color:#64748B; text-align:center;
   }
   .sos-btn.holding { transform:scale(0.96); box-shadow:0 0 0 12px rgba(220,38,38,0.25); }
+
+  /* 시니어 복약 알림 카드 */
+  .med-card {
+    background:linear-gradient(135deg,#FEF3C7 0%,#FCD34D 100%);
+    border:2px solid #F59E0B; border-radius:16px;
+    padding:18px; margin-bottom:12px;
+    box-shadow:0 4px 12px rgba(245,158,11,0.25);
+  }
+  .med-card .header { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .med-card .header .ic { font-size:28px; }
+  .med-card .header .label {
+    background:#DC2626; color:white; padding:3px 10px; border-radius:999px;
+    font-size:11px; font-weight:700;
+  }
+  .med-card h3 { margin:6px 0 4px; color:#0F172A; font-size:22px; font-weight:800; }
+  .med-card .dose { color:#92400E; font-weight:600; font-size:15px; margin-bottom:4px; }
+  .med-card .meta { color:#78350F; font-size:13px; margin-bottom:10px; }
+  .med-card .photo { margin:8px 0; }
+  .med-card .photo img { max-width:120px; max-height:80px; border-radius:8px; }
+  .med-card .took-btn {
+    width:100%; padding:18px;
+    background:#16a34a; color:white; border:none;
+    border-radius:12px; font-size:20px; font-weight:800;
+    cursor:pointer; font-family:inherit;
+    box-shadow:0 4px 12px rgba(22,163,74,0.3);
+    display:flex; align-items:center; justify-content:center; gap:10px;
+  }
+  .med-card .took-btn:active { transform:translateY(1px); }
+  .med-card.taken {
+    background:#DCFCE7; border-color:#16a34a;
+    opacity:0.7; box-shadow:none;
+  }
+  .med-card.taken .took-btn {
+    background:#94A3B8; cursor:default;
+  }
 </style>
 </head>
 <body class="page">
@@ -107,6 +142,9 @@
       </div>
       <select id="uidSelect" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; font-size:15px; font-family:inherit;"></select>
     </div>
+
+    <!-- 시니어 복약 알림 (스케줄 시간 도달 시 자동 표시) -->
+    <div id="medAlertsHost"></div>
 
     <!-- SOS는 모든 티어 공통 — 짧게(1초+)=도움 요청, 길게(3초+)=위급 -->
     <div class="card">
@@ -226,6 +264,7 @@
 <script type="module" src="auth-guard.js"></script>
 <script src="mode-link.js"></script>
 <script type="module" src="app-firebase.js"></script>
+<script src="data/meds-runtime.js"></script>
 <script>
 function populateSelect() {
   const state = CareSafe.load();
@@ -371,7 +410,74 @@ const savedTier = localStorage.getItem('caresafe:simTier') || 'basic';
 setTier(savedTier);
 
 populateSelect();
-CareSafe.subscribe(() => populateSelect());
+CareSafe.subscribe(() => { populateSelect(); renderMedAlerts(); });
+
+// ===== 복약 알림 (시니어 디바이스 측) =====
+// 1분마다 체크. 시간 되면 큰 카드 + '먹었어요' 버튼.
+function renderMedAlerts() {
+  const host = document.getElementById('medAlertsHost');
+  if (!host) return;
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid);
+  if (!senior || !window.CareSafeMeds) {
+    host.innerHTML = '';
+    return;
+  }
+  const pending = window.CareSafeMeds.pendingSlots(senior);
+  const todayAll = window.CareSafeMeds.todaySlots(senior);
+
+  let html = '';
+  if (pending.length > 0) {
+    pending.forEach(slot => {
+      html += `
+        <div class="med-card">
+          <div class="header">
+            <span class="ic">💊</span>
+            <span class="label">복약 시간</span>
+            <span style="margin-left:auto;color:#92400E;font-size:13px;font-weight:600">⏰ ${slot.time}</span>
+          </div>
+          <h3>${slot.medName}</h3>
+          <div class="dose">${slot.medDose || ''}</div>
+          ${slot.medFor ? `<div class="meta">${slot.medFor}</div>` : ''}
+          <button class="took-btn" data-slot="${slot.fullKey}" onclick="markTaken('${slot.fullKey}', '${slot.medName.replace(/'/g,'')}')">💊 먹었어요</button>
+        </div>`;
+    });
+  }
+  // 오늘 복약 요약 (다음/이전)
+  if (todayAll.length > 0) {
+    const taken = todayAll.filter(s => s.taken_at).length;
+    const total = todayAll.length;
+    html += `
+      <div class="card" style="background:#F8FAFC; padding:10px 14px">
+        <div style="font-size:12px; color:#64748B; font-weight:600">📊 오늘 복약 ${taken}/${total} · ${senior.name} 어르신</div>
+      </div>`;
+  }
+  host.innerHTML = html;
+}
+
+function markTaken(fullKey, medName) {
+  const state = CareSafe.load();
+  const senior = state.seniors.find(s => s.id === state.activeUid);
+  if (!senior) return;
+  // 슬롯 정보 조회
+  const slots = window.CareSafeMeds.todaySlots(senior);
+  const slot = slots.find(s => s.fullKey === fullKey);
+  if (!slot) return;
+  window.CareSafeMeds.markTaken(senior, slot);
+  // 보호자에게 확인 알림 발사 (level=ok, type=activity)
+  CareSafe.addAlert({
+    uid: senior.id,
+    type: 'activity',
+    level: 'ok',
+    text: `💊 ${medName} 복약 확인 (${slot.time})`,
+  });
+  CareSafe.toast(`${medName} 먹음 — 보호자에게 알림 전달됨`, 'ok');
+  renderMedAlerts();
+}
+
+// 1분마다 시간 도달한 약 알림 표시
+renderMedAlerts();
+setInterval(renderMedAlerts, 60 * 1000);
 </script>
 </body>
 </html>

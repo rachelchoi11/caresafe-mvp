@@ -304,6 +304,14 @@
 
     <div class="card">
       <div class="title-row">
+        <h2>오늘 복약 현황</h2>
+        <span class="muted" id="medsToday">— / —</span>
+      </div>
+      <div id="medsList"></div>
+    </div>
+
+    <div class="card">
+      <div class="title-row">
         <h2>이번 주 안전 체크</h2>
         <span class="muted" id="checklistCount">0 / 0</span>
       </div>
@@ -539,6 +547,7 @@
 <script src="data/ai_guide_variants.js"></script>
 <script src="data/checklist.js"></script>
 <script src="data/ai_message_variants.js"></script>
+<script src="data/meds-runtime.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
 const ICONS = { sos: '🆘', fall: '⚠️', battery: '🔋', medication: '💊', activity: '🟢', inactivity: '⏸️' };
@@ -601,7 +610,74 @@ function render() {
   updateMsgContextBadge();
   // 무소식 타임아웃 배너
   renderNoSignalBanner(active);
+  // 오늘 복약 현황
+  renderMedsStatus(active);
 }
+
+// ===== 오늘 복약 현황 (보호자 측) =====
+function renderMedsStatus(senior) {
+  const host = document.getElementById('medsList');
+  const count = document.getElementById('medsToday');
+  if (!host || !window.CareSafeMeds) return;
+  const slots = window.CareSafeMeds.todaySlots(senior);
+  if (slots.length === 0) {
+    host.innerHTML = '<div class="muted" style="font-size:13px; padding:10px 0; text-align:center">등록된 복약 스케줄 없음 — 시니어 등록·편집에서 추가</div>';
+    if (count) count.textContent = '0 / 0';
+    return;
+  }
+  const taken = slots.filter(s => s.taken_at).length;
+  if (count) count.textContent = `${taken} / ${slots.length}`;
+
+  const now = Date.now();
+  host.innerHTML = slots.map(s => {
+    const diff = now - s.scheduledAt;
+    let stateLabel, stateColor;
+    if (s.taken_at) {
+      stateLabel = '✓ 먹음';
+      stateColor = '#16a34a';
+    } else if (diff < 0) {
+      stateLabel = '⏳ 대기';
+      stateColor = '#64748B';
+    } else if (diff < window.CareSafeMeds.MISSED_THRESHOLD_MS) {
+      stateLabel = '🔔 미체크';
+      stateColor = '#F59E0B';
+    } else {
+      stateLabel = '⚠️ 누락';
+      stateColor = '#DC2626';
+    }
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #F1F5F9;font-size:14px">
+        <div>
+          <div style="font-weight:600;color:#0F172A">${s.medName} <span style="color:#64748B;font-weight:500">${s.medDose || ''}</span></div>
+          <div style="color:#94A3B8;font-size:12px">⏰ ${s.time}</div>
+        </div>
+        <span style="color:${stateColor};font-weight:700;font-size:12px">${stateLabel}</span>
+      </div>`;
+  }).join('');
+}
+
+// ===== 2시간+ 미체크 자동 알림 (중복 방지) =====
+const _medMissedFired = new Set();  // fullKey → fired
+function checkMissedMeds() {
+  const state = CareSafe.load();
+  if (!window.CareSafeMeds) return;
+  for (const senior of state.seniors) {
+    const missed = window.CareSafeMeds.missedSlots(senior);
+    for (const slot of missed) {
+      if (_medMissedFired.has(slot.fullKey)) continue;
+      _medMissedFired.add(slot.fullKey);
+      CareSafe.addAlert({
+        uid: senior.id,
+        type: 'medication',
+        level: 'warn',
+        text: `💊 ${slot.medName} (${slot.time}) 2시간+ 미체크 — 안부 전화 권유`,
+      });
+    }
+  }
+}
+// 페이지 로드 시 + 5분마다
+setTimeout(checkMissedMeds, 5000);
+setInterval(checkMissedMeds, 5 * 60 * 1000);
 
 // ===== 무소식 타임아웃 배너 =====
 // 24시간+ 신호 없으면 자동 표시. Cloud Function 없이 클라이언트에서만 동작.
@@ -1010,24 +1086,58 @@ function sfAddMed(data = {}) {
   const div = document.createElement('div');
   div.className = 'sf-item-card';
   div.dataset.kind = 'med';
+  const sched = data.schedule || {};
+  const times = (sched.times || []).join(', ');
   div.innerHTML = `
     <button type="button" class="sf-remove" onclick="this.parentElement.remove()">✕</button>
     <div class="sf-row">
-      <div class="sf-field"><label>약물명</label><input class="sf-m-name" value="${_sfEsc(data.name)}" placeholder="예: 와파린"></div>
+      <div class="sf-field"><label>약물명 *</label><input class="sf-m-name" value="${_sfEsc(data.name)}" placeholder="예: 와파린"></div>
       <div class="sf-field"><label>용량</label><input class="sf-m-dose" value="${_sfEsc(data.dose)}" placeholder="예: 5mg"></div>
     </div>
+    <div class="sf-field">
+      <label>복용 시간 (24시간제, 쉼표로 구분) *</label>
+      <input class="sf-m-times" value="${_sfEsc(times)}" placeholder="예: 08:00, 13:00, 20:00">
+      <div class="hint" style="color:#94A3B8;font-size:11px;margin-top:3px">시간이 되면 시니어 디바이스에 알림 + 보호자 모니터링</div>
+    </div>
     <div class="sf-row">
-      <div class="sf-field"><label>복용 시간</label><input class="sf-m-time" value="${_sfEsc(data.time)}" placeholder="아침/저녁"></div>
-      <div class="sf-field"><label>분류 (응급 우선순위)</label><select class="sf-m-critical">
+      <div class="sf-field"><label>요일</label><select class="sf-m-days">
+        <option value="every" ${(sched.days||'every')==='every'?'selected':''}>매일</option>
+        <option value="weekdays" ${sched.days==='weekdays'?'selected':''}>평일 (월~금)</option>
+        <option value="weekend" ${sched.days==='weekend'?'selected':''}>주말 (토·일)</option>
+        <option value="mon,wed,fri" ${sched.days==='mon,wed,fri'?'selected':''}>월·수·금</option>
+        <option value="tue,thu" ${sched.days==='tue,thu'?'selected':''}>화·목</option>
+      </select></div>
+      <div class="sf-field"><label>분류 (응급)</label><select class="sf-m-critical">
         <option value="">일반</option>
-        <option value="anticoagulant" ${data.critical==='anticoagulant'?'selected':''}>항응고제 (와파린 등)</option>
-        <option value="antiplatelet" ${data.critical==='antiplatelet'?'selected':''}>항혈소판제 (아스피린 등)</option>
+        <option value="anticoagulant" ${data.critical==='anticoagulant'?'selected':''}>항응고제</option>
+        <option value="antiplatelet" ${data.critical==='antiplatelet'?'selected':''}>항혈소판제</option>
         <option value="insulin" ${data.critical==='insulin'?'selected':''}>인슐린</option>
         <option value="steroid" ${data.critical==='steroid'?'selected':''}>스테로이드</option>
       </select></div>
     </div>
-    <div class="sf-field"><label>용도</label><input class="sf-m-for" value="${_sfEsc(data.for)}" placeholder="예: 혈전 예방"></div>
+    <div class="sf-row">
+      <div class="sf-field"><label>시작일</label><input class="sf-m-start" type="date" value="${_sfEsc(sched.startDate)}"></div>
+      <div class="sf-field"><label>종료일</label><input class="sf-m-end" type="date" value="${_sfEsc(sched.endDate)}"></div>
+    </div>
+    <div class="sf-field"><label>용도·메모</label><input class="sf-m-for" value="${_sfEsc(data.for)}" placeholder="예: 혈전 예방"></div>
+    <div class="sf-field">
+      <label>약봉투 사진 (선택, 참고용)</label>
+      <input class="sf-m-photo-input" type="file" accept="image/*" style="font-size:12px">
+      ${data.photo ? `<div style="margin-top:6px"><img src="${_sfEsc(data.photo)}" style="max-width:120px;border-radius:6px"><div class="hint" style="color:#94A3B8;font-size:11px">이미 첨부됨 · 새 파일 선택 시 교체</div></div>` : ''}
+      <input type="hidden" class="sf-m-photo" value="${_sfEsc(data.photo)}">
+    </div>
   `;
+  // 사진 첨부 → base64 → hidden input
+  const fileInput = div.querySelector('.sf-m-photo-input');
+  const hiddenPhoto = div.querySelector('.sf-m-photo');
+  fileInput.addEventListener('change', (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 500000) { alert('이미지가 500KB 초과 — 더 작은 파일 사용 권장 (압축)'); }
+    const reader = new FileReader();
+    reader.onload = () => { hiddenPhoto.value = reader.result; };
+    reader.readAsDataURL(f);
+  });
   c.appendChild(div);
 }
 
@@ -1150,18 +1260,36 @@ function _sfCollect() {
     };
   });
 
-  // 약물
+  // 약물 + schedule + 사진
   senior.meds = collect('[data-kind="med"]', el => {
     const name = el.querySelector('.sf-m-name').value.trim();
     if (!name) return null;
     const critical = el.querySelector('.sf-m-critical').value;
+    const id = el.dataset.medId || ('m' + Date.now() + Math.random().toString(36).slice(2,5));
+    el.dataset.medId = id;
+    const timesRaw = (el.querySelector('.sf-m-times')?.value || '').trim();
+    const times = timesRaw.split(/[,;\s]+/)
+      .map(s => s.trim())
+      .filter(t => /^\d{1,2}:\d{2}$/.test(t))
+      .map(t => t.padStart(5, '0'));
+    const photo = el.querySelector('.sf-m-photo')?.value || '';
     const med = {
+      id,
       name,
       dose: el.querySelector('.sf-m-dose').value.trim(),
-      time: el.querySelector('.sf-m-time').value.trim(),
       for: el.querySelector('.sf-m-for').value.trim(),
+      schedule: {
+        times,
+        days: el.querySelector('.sf-m-days')?.value || 'every',
+        startDate: el.querySelector('.sf-m-start')?.value || '',
+        endDate: el.querySelector('.sf-m-end')?.value || '',
+      },
     };
+    // 사진은 크면 빼고 (Firebase RTDB 1MB 제한)
+    if (photo && photo.length < 700000) med.photo = photo;
     if (critical) med.critical = critical;
+    // 호환: 옛 time 필드도 같이 표시 (사람이 읽는 용)
+    med.time = times.length ? times.join(', ') : (el.querySelector('.sf-m-time')?.value || '').trim();
     return med;
   });
 
