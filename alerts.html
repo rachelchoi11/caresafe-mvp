@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#005F73">
+<title>알림 이력 · CareSafe</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .filter-bar {
+    background:white; padding:12px; border-radius:12px;
+    margin-bottom:12px; border:1px solid #E2E8F0;
+  }
+  .filter-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .filter-row:last-child { margin-bottom:0; }
+  .filter-row .label {
+    font-size:11px; color:#64748B; font-weight:700;
+    width:50px; padding-top:6px; flex-shrink:0;
+  }
+  .chip {
+    padding:6px 12px; border-radius:999px; border:1px solid #E2E8F0;
+    background:white; font-size:12px; color:#475569; cursor:pointer;
+    font-family:inherit; font-weight:600;
+  }
+  .chip.active { background:#005F73; color:white; border-color:#005F73; }
+  .chip.danger.active { background:#DC2626; border-color:#DC2626; }
+  .chip.warn.active { background:#F59E0B; border-color:#F59E0B; }
+  .chip.ok.active { background:#16a34a; border-color:#16a34a; }
+  .chip.no-ack.active { background:#0F172A; border-color:#0F172A; }
+
+  .stat-bar {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:6px;
+    background:white; padding:10px; border-radius:12px;
+    border:1px solid #E2E8F0; margin-bottom:12px;
+  }
+  .stat-bar .s-cell { text-align:center; padding:4px 0; }
+  .stat-bar .s-cell .n { font-size:18px; font-weight:700; color:#0F172A; }
+  .stat-bar .s-cell .l { font-size:10px; color:#64748B; margin-top:2px; }
+  .stat-bar .s-cell.danger .n { color:#DC2626; }
+  .stat-bar .s-cell.warn .n { color:#F59E0B; }
+  .stat-bar .s-cell.no-ack .n { color:#0F172A; }
+
+  .group-header {
+    font-size:12px; font-weight:700; color:#94A3B8;
+    text-transform:uppercase; letter-spacing:0.6px;
+    margin:14px 4px 8px;
+  }
+  .group-header .count { color:#475569; font-weight:600; margin-left:6px; }
+  .alert-row {
+    background:white; border-radius:10px; padding:12px;
+    margin-bottom:6px; display:flex; gap:10px; align-items:flex-start;
+    border-left:4px solid #E2E8F0; cursor:pointer;
+    transition:background 0.1s;
+  }
+  .alert-row:hover { background:#F8FAFC; }
+  .alert-row.danger { border-left-color:#DC2626; }
+  .alert-row.warn { border-left-color:#F59E0B; }
+  .alert-row.ok { border-left-color:#16a34a; }
+  .alert-row.no-ack { background:#FEF3C7; }
+  .alert-row .ic { font-size:18px; flex-shrink:0; padding-top:1px; }
+  .alert-row .body { flex:1; min-width:0; }
+  .alert-row .text { color:#0F172A; font-weight:600; font-size:14px; line-height:1.4; }
+  .alert-row .meta { color:#64748B; font-size:12px; margin-top:4px; display:flex; gap:6px; flex-wrap:wrap; }
+  .alert-row .meta .pill-sm {
+    padding:1px 6px; border-radius:999px; font-size:10px; font-weight:700;
+  }
+  .alert-row .meta .pill-sm.danger { background:#FEE2E2; color:#991B1B; }
+  .alert-row .meta .pill-sm.warn { background:#FEF3C7; color:#92400E; }
+  .alert-row .meta .pill-sm.ok { background:#DCFCE7; color:#166534; }
+  .alert-row .ack {
+    background:#F1F5F9; color:#475569; padding:2px 6px; border-radius:999px;
+    font-size:10px; font-weight:700;
+  }
+  .alert-row .ack.no { background:#FEE2E2; color:#991B1B; }
+
+  .empty {
+    text-align:center; padding:40px 20px; color:#94A3B8;
+    background:white; border-radius:12px; border:1px dashed #E2E8F0;
+  }
+
+  /* Guide modal (guardian과 동일 스타일) */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(15,23,42,0.6);
+    z-index:9000; display:flex; align-items:flex-end; justify-content:center;
+    animation:fadeIn 0.15s ease;
+  }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .modal-content {
+    background:white; width:100%; max-width:560px;
+    border-radius:20px 20px 0 0; padding:20px 20px 32px;
+    max-height:88vh; overflow-y:auto; position:relative;
+    animation:slideUp 0.2s ease;
+  }
+  .modal-close {
+    position:absolute; top:14px; right:14px;
+    background:#F1F5F9; border:none; width:36px; height:36px;
+    border-radius:50%; font-size:16px; cursor:pointer; color:#475569;
+  }
+  .modal-content h2 { margin:0 0 4px; font-size:20px; color:#0F172A; padding-right:32px; }
+  .severity-pill {
+    display:inline-block; padding:3px 10px; border-radius:999px;
+    font-size:11px; font-weight:700; letter-spacing:0.5px; margin-bottom:8px;
+  }
+  .severity-pill.danger { background:#FEE2E2; color:#991B1B; }
+  .severity-pill.warn { background:#FEF3C7; color:#92400E; }
+  .severity-pill.ok { background:#DCFCE7; color:#166534; }
+  .intro { color:#475569; line-height:1.55; margin:8px 0 18px; font-size:14px; }
+  .modal-steps { margin:0; padding:0; list-style:none; counter-reset:step; }
+  .modal-steps li {
+    display:flex; gap:12px; padding:14px 0; border-bottom:1px solid #F1F5F9;
+    counter-increment:step;
+  }
+  .modal-steps li:last-child { border-bottom:none; }
+  .modal-steps li::before {
+    content: counter(step);
+    flex-shrink:0; width:28px; height:28px; border-radius:50%;
+    background:#005F73; color:white; display:flex; align-items:center;
+    justify-content:center; font-weight:700; font-size:13px;
+  }
+  .modal-steps .do { font-weight:600; color:#0F172A; font-size:15px; line-height:1.4; }
+  .modal-steps .note { color:#64748B; font-size:13px; margin-top:4px; line-height:1.5; }
+  .modal-pitfalls {
+    margin-top:18px; padding:14px; background:#FEF3C7; border-radius:10px;
+    border:1px solid #FCD34D;
+  }
+  .modal-pitfalls h3 { margin:0 0 6px; font-size:13px; color:#92400E; }
+  .modal-pitfalls ul { margin:0; padding-left:18px; color:#92400E; font-size:13px; line-height:1.6; }
+</style>
+</head>
+<body class="page">
+<div class="mobile-shell">
+  <header class="app-bar">
+    <div class="hstack">
+      <a href="guardian.html" style="text-decoration:none; color:#64748B; font-size:18px; padding:4px 8px">←</a>
+      <div>
+        <h1>알림 이력</h1>
+        <div class="sub" id="alertsSub">필터링·검색</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="content">
+    <div class="stat-bar">
+      <div class="s-cell"><div class="n" id="sTotal">—</div><div class="l">전체</div></div>
+      <div class="s-cell danger"><div class="n" id="sDanger">—</div><div class="l">위급</div></div>
+      <div class="s-cell warn"><div class="n" id="sWarn">—</div><div class="l">주의</div></div>
+      <div class="s-cell no-ack"><div class="n" id="sNoAck">—</div><div class="l">미확인 24h+</div></div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-row">
+        <span class="label">시니어</span>
+        <div id="fSeniors" style="display:flex; gap:6px; flex-wrap:wrap"></div>
+      </div>
+      <div class="filter-row">
+        <span class="label">위급도</span>
+        <button class="chip active" data-level="all">전체</button>
+        <button class="chip danger" data-level="danger">위급</button>
+        <button class="chip warn" data-level="warn">주의</button>
+        <button class="chip ok" data-level="ok">정상</button>
+      </div>
+      <div class="filter-row">
+        <span class="label">기간</span>
+        <button class="chip active" data-range="all">전체</button>
+        <button class="chip" data-range="today">오늘</button>
+        <button class="chip" data-range="week">이번 주</button>
+        <button class="chip" data-range="month">이번 달</button>
+      </div>
+      <div class="filter-row">
+        <span class="label">확인</span>
+        <button class="chip active" data-ack="all">전체</button>
+        <button class="chip" data-ack="acked">확인 완료</button>
+        <button class="chip no-ack" data-ack="no_ack">미확인 (24h+)</button>
+      </div>
+    </div>
+
+    <div id="alertGroups"></div>
+  </section>
+
+  <nav class="tabs">
+    <a href="guardian.html"><span class="ic">🏠</span>홈</a>
+    <a href="alerts.html" class="active"><span class="ic">🔔</span>알림</a>
+    <a href="help.html"><span class="ic">📖</span>도움말</a>
+    <a href="settings.html"><span class="ic">⚙️</span>설정</a>
+  </nav>
+</div>
+
+<!-- 대응가이드 모달 (guardian과 동일) -->
+<div id="guideModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeGuide()">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeGuide()">✕</button>
+    <span id="guideSeverity" class="severity-pill"></span>
+    <h2 id="guideTitle"></h2>
+    <p id="guideIntro" class="intro"></p>
+    <ol id="guideSteps" class="modal-steps"></ol>
+    <div id="guidePitfalls" class="modal-pitfalls" style="display:none">
+      <h3>⚠️ 주의할 점</h3>
+      <ul id="guidePitfallList"></ul>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script type="module" src="auth-guard.js"></script>
+<script type="module" src="app-firebase.js"></script>
+<script src="data/guide.js"></script>
+<script src="data/ai_guide_variants.js"></script>
+<script>
+const ICONS = { sos: '🆘', fall: '⚠️', battery: '🔋', medication: '💊', activity: '🟢', inactivity: '⏸️' };
+const LEVEL_TEXT = { ok: '정상', warn: '주의', danger: '위급' };
+
+// 필터 상태
+const filter = {
+  uid: 'all',     // 'all' | senior uid
+  level: 'all',   // 'all' | 'danger' | 'warn' | 'ok'
+  range: 'all',   // 'all' | 'today' | 'week' | 'month'
+  ack: 'all',     // 'all' | 'acked' | 'no_ack'
+};
+
+function fmtDay(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return '오늘';
+  const ydy = new Date(now); ydy.setDate(ydy.getDate() - 1);
+  if (d.toDateString() === ydy.toDateString()) return '어제';
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+  if (d >= yearStart) return `${d.getMonth()+1}월 ${d.getDate()}일`;
+  return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`;
+}
+
+function fmtTime(ts) {
+  const d = new Date(ts);
+  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+
+function getRangeStart() {
+  const now = new Date();
+  const t = new Date(now);
+  if (filter.range === 'today') {
+    t.setHours(0,0,0,0);
+    return t.getTime();
+  }
+  if (filter.range === 'week') {
+    const dow = t.getDay() || 7;
+    t.setDate(t.getDate() - (dow - 1));
+    t.setHours(0,0,0,0);
+    return t.getTime();
+  }
+  if (filter.range === 'month') {
+    return new Date(t.getFullYear(), t.getMonth(), 1).getTime();
+  }
+  return 0;
+}
+
+function applyFilters(alerts) {
+  const rangeStart = getRangeStart();
+  const now = Date.now();
+  return alerts.filter(a => {
+    if (filter.uid !== 'all' && a.uid !== filter.uid) return false;
+    if (filter.level !== 'all' && a.level !== filter.level) return false;
+    if (a.time < rangeStart) return false;
+    if (filter.ack === 'acked' && !a.ack_ts) return false;
+    if (filter.ack === 'no_ack' && (a.ack_ts || (now - a.time) <= 24*3600*1000)) return false;
+    return true;
+  });
+}
+
+function render() {
+  const state = CareSafe.load();
+  const allAlerts = state.alerts || [];
+  const filtered = applyFilters(allAlerts);
+
+  // 통계 (필터 무관 전체 기준)
+  document.getElementById('sTotal').textContent = allAlerts.length;
+  document.getElementById('sDanger').textContent = allAlerts.filter(a => a.level === 'danger').length;
+  document.getElementById('sWarn').textContent = allAlerts.filter(a => a.level === 'warn').length;
+  document.getElementById('sNoAck').textContent = allAlerts.filter(a =>
+    !a.ack_ts && (Date.now() - a.time) > 24*3600*1000
+  ).length;
+  document.getElementById('alertsSub').textContent =
+    filtered.length === allAlerts.length
+      ? `전체 ${allAlerts.length}건`
+      : `필터 ${filtered.length} / 전체 ${allAlerts.length}`;
+
+  // 시니어 칩 (필터)
+  const seniorChips = document.getElementById('fSeniors');
+  const chips = [
+    `<button class="chip ${filter.uid==='all'?'active':''}" data-uid="all">전체</button>`,
+    ...state.seniors.map(s =>
+      `<button class="chip ${filter.uid===s.id?'active':''}" data-uid="${s.id}">${s.name}</button>`
+    )
+  ];
+  seniorChips.innerHTML = chips.join('');
+  seniorChips.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', () => { filter.uid = c.dataset.uid; render(); });
+  });
+
+  // 알림 그룹 (날짜별)
+  const groups = {};
+  filtered.forEach(a => {
+    const key = fmtDay(a.time);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(a);
+  });
+
+  const container = document.getElementById('alertGroups');
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty">조건에 맞는 알림이 없습니다.</div>';
+    return;
+  }
+
+  const now = Date.now();
+  let html = '';
+  for (const [day, list] of Object.entries(groups)) {
+    html += `<div class="group-header">${day} <span class="count">${list.length}건</span></div>`;
+    list.forEach(a => {
+      const senior = state.seniors.find(s => s.id === a.uid);
+      const noAck = !a.ack_ts && (now - a.time) > 24*3600*1000;
+      html += `
+        <div class="alert-row ${a.level} ${noAck ? 'no-ack' : ''}" onclick="openGuideForAlert('${a.id}')">
+          <div class="ic">${ICONS[a.type] || '🔔'}</div>
+          <div class="body">
+            <div class="text">${a.text}</div>
+            <div class="meta">
+              <span class="pill-sm ${a.level}">${LEVEL_TEXT[a.level]}</span>
+              ${senior ? `<span>👵 ${senior.name}</span>` : ''}
+              <span>🕐 ${fmtTime(a.time)}</span>
+              <span class="ack ${a.ack_ts ? '' : 'no'}">${a.ack_ts ? '✓ 확인' : (noAck ? '⚠ 미확인' : '미확인')}</span>
+            </div>
+          </div>
+        </div>`;
+    });
+  }
+  container.innerHTML = html;
+}
+
+// 필터 칩 이벤트 (시니어 외)
+document.querySelectorAll('.chip[data-level]').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip[data-level]').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    filter.level = c.dataset.level; render();
+  });
+});
+document.querySelectorAll('.chip[data-range]').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip[data-range]').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    filter.range = c.dataset.range; render();
+  });
+});
+document.querySelectorAll('.chip[data-ack]').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip[data-ack]').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    filter.ack = c.dataset.ack; render();
+  });
+});
+
+// ===== 대응가이드 모달 (guardian.html과 동일 로직 — 복사) =====
+function _scoreProfileMatch(match, senior) {
+  if (!match || !senior) return 0;
+  let score = 0;
+  if (match.critical_meds) {
+    const c = (senior.meds || []).map(m => m.critical).filter(Boolean);
+    if (match.critical_meds.some(x => c.includes(x))) score += 10;
+  }
+  if (match.cognitive && senior.cognitiveBaseline && match.cognitive.includes(senior.cognitiveBaseline)) score += 10;
+  if (match.recent_surgery_weeks) {
+    const surgeries = (senior.recentHistory || []).filter(h => h.type === '수술' || h.type === '시술');
+    for (const s of surgeries) {
+      const days = (Date.now() - new Date(s.date).getTime()) / 86400000;
+      if (days <= match.recent_surgery_weeks * 7) { score += 10; break; }
+    }
+  }
+  return score;
+}
+
+function _resolveVariantKey(alert) {
+  if (alert.type === 'sos') return alert.level === 'danger' ? 'sos_urgent' : 'sos_help';
+  if (alert.type === 'inactivity' && /무소식/.test(alert.text || '')) return 'no_signal';
+  return alert.type;
+}
+
+function _selectGuide(alert, senior) {
+  const key = _resolveVariantKey(alert);
+  const variants = (window.CareSafeGuideVariants || {})[key] || [];
+  if (variants.length && senior) {
+    const scored = variants.map(v => ({ v, score: _scoreProfileMatch(v.match, senior) }));
+    scored.sort((a, b) => b.score - a.score);
+    const best = scored[0];
+    if (best.score > 0) return { ...best.v, _source: `AI 변형 (${best.v.profile})` };
+    const def = variants.find(v => v.profile === 'default') || best.v;
+    return { ...def, _source: 'AI 변형 (기본)' };
+  }
+  const sg = (window.CareSafeGuide || {})[alert.type];
+  if (sg) return { ...sg, _source: '정적 가이드' };
+  return null;
+}
+
+function openGuideForAlert(alertId) {
+  const state = CareSafe.load();
+  const alert = state.alerts.find(a => a.id === alertId);
+  if (!alert) return;
+  const senior = state.seniors.find(s => s.id === alert.uid);
+  const guide = _selectGuide(alert, senior);
+  if (!guide) { window.alert('가이드가 등록되지 않은 알림 유형입니다.'); return; }
+  // ack 기록
+  if (!alert.ack_ts) {
+    alert.ack_ts = Date.now();
+    try {
+      if (window.CareSafeFB && new URLSearchParams(location.search).get('mode') === 'firebase') {
+        window.CareSafeFB.writePath(`/alerts/${alert.id}/ack_ts`, alert.ack_ts);
+      } else {
+        const idx = state.alerts.findIndex(a => a.id === alertId);
+        if (idx >= 0) { state.alerts[idx].ack_ts = alert.ack_ts; CareSafe.save(state); }
+      }
+    } catch (e) { console.warn('ack_ts 저장 실패:', e); }
+  }
+  document.getElementById('guideTitle').textContent = guide.title || '';
+  document.getElementById('guideIntro').textContent =
+    (guide.intro || '') + (guide._source ? ` · ${guide._source}` : '');
+  const sev = document.getElementById('guideSeverity');
+  sev.textContent = LEVEL_TEXT[guide.severity] || '';
+  sev.className = 'severity-pill ' + (guide.severity || '');
+  document.getElementById('guideSteps').innerHTML = (guide.steps || []).map(s =>
+    `<li><div><div class="do">${s.do || ''}</div><div class="note">${s.note || ''}</div></div></li>`).join('');
+  const pBox = document.getElementById('guidePitfalls');
+  const pList = document.getElementById('guidePitfallList');
+  if (guide.pitfalls && guide.pitfalls.length) {
+    pBox.style.display = 'block';
+    pList.innerHTML = guide.pitfalls.map(t => `<li>${t}</li>`).join('');
+  } else { pBox.style.display = 'none'; }
+  document.getElementById('guideModal').style.display = 'flex';
+}
+
+function closeGuide() {
+  document.getElementById('guideModal').style.display = 'none';
+}
+
+CareSafe.subscribe(() => render());
+render();
+</script>
+</body>
+</html>
