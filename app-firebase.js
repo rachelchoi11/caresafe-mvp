@@ -205,6 +205,7 @@ function installFirebaseAdapter(FB) {
     "recentHistory",        // 구체 입원·수술 일자 = 식별 가능
     "implants",             // 모델명·수술일자 = 식별 가능
     "assistiveDevices",     // 일부 식별 가능 — 보호자 페이지에서만 표시
+    "checkInSchedule",      // 자동 안부 설정 — 운영 정보
   ]);
 
   function _splitSeniorObj(s) {

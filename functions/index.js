@@ -2,7 +2,8 @@
 // /alerts/{alertId} 신규 생성 시 모든 admin 토큰에 FCM 푸시 발송.
 // 향후: senior_owners 매핑 도입 시 해당 가구 보호자만 타겟팅.
 
-const { onValueCreated } = require("firebase-functions/v2/database");
+const { onValueCreated, onValueWritten } = require("firebase-functions/v2/database");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getDatabase } = require("firebase-admin/database");
 const { getMessaging } = require("firebase-admin/messaging");
@@ -112,5 +113,88 @@ exports.sendPushOnAlert = onValueCreated(
     }
 
     console.log(`[Push] 알림 ${alert.id} → ${tokens.length}개 토큰 발송 완료 (만료 ${expired.length})`);
+  }
+);
+
+// =====================================================================
+// 자동 안부 체크인 — 매시간 :05분에 실행, 등록된 시간과 매칭되는 시니어에게 안부 카드 발송
+// 시간대: Asia/Seoul. 1시간 단위 매칭 (분 단위 정확도는 RTDB 폴링 부담 회피).
+// =====================================================================
+exports.scheduledCheckin = onSchedule(
+  {
+    schedule: "every 60 minutes",
+    timeZone: "Asia/Seoul",
+    region: "asia-southeast1",
+  },
+  async () => {
+    const db = getDatabase();
+    const now = new Date(Date.now() + 9 * 3600 * 1000); // UTC → KST 보정
+    const hhmm = String(now.getUTCHours()).padStart(2, "0") + ":00";
+    const today = `${now.getUTCFullYear()}${String(now.getUTCMonth()+1).padStart(2,'0')}${String(now.getUTCDate()).padStart(2,'0')}`;
+
+    // 모든 시니어 _private 노드에서 checkInSchedule 시간 매칭 확인
+    const privateSnap = await db.ref("/seniors_private").get();
+    const privateMap = privateSnap.val() || {};
+    let dispatched = 0;
+    for (const [uid, prv] of Object.entries(privateMap)) {
+      const sched = prv.checkInSchedule;
+      if (!sched || sched.enabled === false || !sched.time) continue;
+      // 정시 매칭: 'HH:00' (분 단위 무시)
+      const schedHour = String(sched.time).slice(0, 2) + ":00";
+      if (schedHour !== hhmm) continue;
+      // 오늘 이미 보냈으면 skip
+      const existing = await db.ref(`/checkins/${uid}/${today}`).get();
+      if (existing.exists()) { continue; }
+      // 메시지 풀에서 랜덤 선택 (없으면 디폴트)
+      const msgs = (sched.messages && sched.messages.length) ? sched.messages : [
+        { text: "오늘 하루 어떠세요? 잘 지내고 계시면 한 번 눌러주세요.", hint: "안부 확인" },
+      ];
+      const pick = msgs[Math.floor(Math.random() * msgs.length)];
+      await db.ref(`/checkins/${uid}/${today}`).set({
+        msg: pick.text,
+        hint: pick.hint || "",
+        sentAt: Date.now(),
+        confirmedAt: null,
+      });
+      dispatched++;
+      console.log(`[Checkin] ${uid} ${today} '${pick.text.slice(0, 30)}' 발송`);
+    }
+    console.log(`[Checkin] 정시 ${hhmm} — ${dispatched}건 발송`);
+  }
+);
+
+// =====================================================================
+// 안부 확인 → 보호자 알림. /checkins/{uid}/{date}/confirmedAt 가 채워지면 /alerts 발사.
+// =====================================================================
+exports.onCheckinConfirmed = onValueWritten(
+  {
+    ref: "/checkins/{uid}/{date}/confirmedAt",
+    region: "asia-southeast1",
+    instance: "caresafe-mvp-default-rtdb",
+  },
+  async (event) => {
+    const after = event.data.after.val();
+    const before = event.data.before.val();
+    if (!after || before) return; // 새로 채워질 때만
+    const uid = event.params.uid;
+    const date = event.params.date;
+    const db = getDatabase();
+    let seniorName = "";
+    try {
+      const snap = await db.ref(`/seniors_public/${uid}/name`).get();
+      seniorName = snap.val() || "";
+    } catch (e) { /* ignore */ }
+    const alertId = "a" + Date.now() + Math.floor(Math.random() * 1000);
+    await db.ref(`/alerts/${alertId}`).set({
+      id: alertId,
+      uid,
+      type: "activity",
+      level: "ok",
+      priority: "P3",
+      text: `💚 ${seniorName || "돌봄대상자"} 님 안부 확인 — 오늘도 잘 지내고 계세요`,
+      time: Date.now(),
+      checkinDate: date,
+    });
+    console.log(`[Checkin] ${uid} ${date} 확인 → 알림 ${alertId} 발사`);
   }
 );

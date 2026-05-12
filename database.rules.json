@@ -97,6 +97,11 @@
           ".validate": "newData.hasChild('name') && newData.hasChild('addedBy') && newData.hasChild('status')"
         }
       }
+    },
+
+    "checkins": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }

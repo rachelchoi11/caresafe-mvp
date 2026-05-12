@@ -54,6 +54,33 @@
     margin-top:8px; font-size:14px; color:#64748B; text-align:center; font-weight:600;
   }
 
+  /* 안부 카드 (#15) */
+  .checkin-card {
+    background:linear-gradient(135deg,#ECFDF5 0%,#D1FAE5 100%);
+    border:2px solid #34D399; border-radius:18px;
+    padding:20px; margin-bottom:12px;
+    box-shadow:0 4px 12px rgba(52,211,153,0.18);
+  }
+  .checkin-card .ic-row { display:flex; gap:10px; align-items:center; margin-bottom:8px; }
+  .checkin-card .ic-row .ic { font-size:32px; }
+  .checkin-card .ic-row .label {
+    background:#16A34A; color:white; padding:4px 12px; border-radius:999px;
+    font-size:13px; font-weight:700;
+  }
+  .checkin-card .msg { color:#065F46; font-size:22px; font-weight:700; line-height:1.4; margin:8px 0 14px; }
+  .checkin-card .hint { color:#047857; font-size:14px; margin-bottom:14px; }
+  .checkin-card .ok-btn {
+    width:100%; padding:20px;
+    background:#16a34a; color:white; border:none;
+    border-radius:14px; font-size:22px; font-weight:800;
+    cursor:pointer; font-family:inherit;
+    box-shadow:0 4px 12px rgba(22,163,74,0.3);
+    display:flex; align-items:center; justify-content:center; gap:10px;
+  }
+  .checkin-card .ok-btn:active { transform:translateY(1px); }
+  .checkin-card.confirmed { opacity:0.7; box-shadow:none; }
+  .checkin-card.confirmed .ok-btn { background:#94A3B8; cursor:default; }
+
   /* 복약 카드 (큰 디스플레이) */
   .med-card {
     background:linear-gradient(135deg,#FEF3C7 0%,#FCD34D 100%);
@@ -183,6 +210,9 @@
         <div class="sos-bar-label" id="sosBarLabel">누르고 있음...</div>
       </div>
 
+      <!-- 오늘 안부 카드 (자동 안부 #15) -->
+      <div id="checkinHost"></div>
+
       <!-- 오늘 복약 (시간 도달 시 자동 표시) -->
       <div id="medsHost"></div>
 
@@ -310,7 +340,65 @@ function render() {
   }
 
   renderMeds(senior);
+  renderCheckin(senior);
 }
+
+// 오늘 안부 카드 (#15) — Firebase /checkins/{uid}/{date} 구독
+let _checkinUnsub = null;
+function _ymd() {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+}
+function renderCheckin(senior) {
+  const host = document.getElementById('checkinHost');
+  if (!host) return;
+  host.innerHTML = '';
+  if (_checkinUnsub) { try { _checkinUnsub(); } catch(e){} _checkinUnsub = null; }
+  if (!window.CareSafeFB || !senior) return;
+  const today = _ymd();
+  const path = `/checkins/${senior.id}/${today}`;
+  _checkinUnsub = window.CareSafeFB.watchPath(path, (data) => {
+    if (!data || !data.msg) { host.innerHTML = ''; return; }
+    const confirmed = !!data.confirmedAt;
+    host.innerHTML = `
+      <div class="checkin-card ${confirmed ? 'confirmed' : ''}" data-uid="${E(senior.id)}">
+        <div class="ic-row">
+          <span class="ic">💚</span>
+          <span class="label">오늘 안부</span>
+        </div>
+        <div class="msg">${E(data.msg)}</div>
+        ${data.hint ? `<div class="hint">${E(data.hint)}</div>` : ''}
+        <button class="ok-btn" ${confirmed ? 'disabled' : ''}>
+          ${confirmed ? '✓ 확인 완료' : '✅ 잘 지내고 있어요'}
+        </button>
+      </div>
+    `;
+  });
+}
+
+// 안부 확인 클릭 위임
+document.getElementById('checkinHost').addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('.ok-btn');
+  if (!btn || btn.disabled) return;
+  const card = btn.closest('.checkin-card');
+  if (!card) return;
+  const uid = card.dataset.uid;
+  const today = _ymd();
+  if (window.CareSafeFB?.writePath) {
+    try {
+      await window.CareSafeFB.writePath(`/checkins/${uid}/${today}/confirmedAt`, Date.now());
+      showToast('💚 안부 확인 완료. 잘하셨어요!', 'ok');
+      btn.disabled = true;
+      btn.textContent = '✓ 확인 완료';
+      card.classList.add('confirmed');
+    } catch (e) {
+      showToast('확인 실패 — 인터넷 연결 확인', 'danger');
+    }
+  } else {
+    // 로컬 모드 fallback — 로컬에는 안부 시스템 없음
+    showToast('Firebase 모드에서만 작동합니다.', 'warn');
+  }
+});
 
 // ===== 오늘 복약 (시간 도달 시 자동 표시) =====
 function renderMeds(senior) {

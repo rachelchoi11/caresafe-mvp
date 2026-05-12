@@ -633,6 +633,43 @@
         </details>
 
         <details class="sf-section">
+          <summary>매일 안부 확인 <span class="opt">권장</span></summary>
+          <div class="sf-section-body">
+            <p class="hint" style="margin-top:0;color:#94A3B8;font-size:11px;margin-bottom:10px">
+              💚 매일 정해진 시간에 돌봄대상자에게 안부 메시지가 도착합니다.
+              "확인했어요" 버튼을 누르면 보호자에게 안부 알림이 옵니다.
+            </p>
+            <label class="loc-toggle" style="margin-bottom:10px">
+              <input type="checkbox" id="sfCheckinEnabled" class="loc-toggle-input">
+              <span class="loc-toggle-track"><span class="loc-toggle-thumb"></span></span>
+              <span class="loc-toggle-text">
+                <span class="loc-toggle-state-off">사용 안 함</span>
+                <span class="loc-toggle-state-on">매일 안부 메시지 발송</span>
+              </span>
+            </label>
+            <div class="sf-field">
+              <label>발송 시각 (1시간 단위)</label>
+              <select id="sfCheckinTime">
+                <option value="08:00">오전 8시</option>
+                <option value="09:00">오전 9시</option>
+                <option value="10:00" selected>오전 10시</option>
+                <option value="11:00">오전 11시</option>
+                <option value="12:00">정오 12시</option>
+                <option value="14:00">오후 2시</option>
+                <option value="16:00">오후 4시</option>
+                <option value="18:00">오후 6시</option>
+                <option value="19:00">오후 7시</option>
+                <option value="20:00">오후 8시</option>
+              </select>
+            </div>
+            <div class="sf-field">
+              <label>안부 메시지 (한 줄에 하나, 매일 무작위 선택)</label>
+              <textarea id="sfCheckinMessages" rows="4" placeholder="오늘 하루 어떠세요? 잘 지내고 계시면 눌러주세요.&#10;오늘도 건강하게 보내고 계세요?&#10;좋은 아침이에요. 잘 일어나셨어요?&#10;오늘 식사 잘 하셨어요?"></textarea>
+            </div>
+          </div>
+        </details>
+
+        <details class="sf-section">
           <summary>위치 추적 동의 (SOS 시) <span class="opt">권장</span></summary>
           <div class="sf-section-body">
             <p class="hint" style="margin-top:0;color:#94A3B8;font-size:11px;margin-bottom:10px">
@@ -1252,6 +1289,11 @@ function openSeniorForm(uid) {
   // 위치 동의 토글 (checkbox)
   const locEl = document.getElementById('sfLocConsent');
   if (locEl) locEl.checked = false;
+  // 자동 안부 (#15)
+  const ckEnabledEl = document.getElementById('sfCheckinEnabled');
+  if (ckEnabledEl) ckEnabledEl.checked = false;
+  setVal('sfCheckinTime', '10:00');
+  setVal('sfCheckinMessages', '');
 
   document.getElementById('sfContacts').innerHTML = '';
   document.getElementById('sfAllergies').innerHTML = '';
@@ -1294,6 +1336,11 @@ function openSeniorForm(uid) {
     // 보조기기 — 옛 string 배열도 객체 변환해 로드
     (senior.assistiveDevices || []).forEach(a => sfAddAssistive(a));
     if (locEl) locEl.checked = senior.locationConsent === true;
+    // 자동 안부 로드 (#15)
+    const ck = senior.checkInSchedule || {};
+    if (ckEnabledEl) ckEnabledEl.checked = ck.enabled === true;
+    setVal('sfCheckinTime', ck.time || '10:00');
+    setVal('sfCheckinMessages', (ck.messages || []).map(m => typeof m === 'string' ? m : m.text).join('\n'));
     (senior.emergencyContacts || []).forEach(c => sfAddContact(c));
     (senior.allergies || []).forEach(a => sfAddAllergy(typeof a === 'string' ? { agent: a } : a));
     (senior.meds || []).forEach(m => sfAddMed(m));
@@ -1845,6 +1892,16 @@ function _sfCollect() {
       return obj;
     }),
     locationConsent: document.getElementById('sfLocConsent').checked === true,
+    checkInSchedule: (function(){
+      const msgs = (document.getElementById('sfCheckinMessages').value || '')
+        .split('\n').map(s => s.trim()).filter(Boolean)
+        .map(text => ({ text }));
+      return {
+        enabled: document.getElementById('sfCheckinEnabled').checked === true,
+        time: document.getElementById('sfCheckinTime').value || '10:00',
+        messages: msgs,
+      };
+    })(),
   };
 
   // 주치의
