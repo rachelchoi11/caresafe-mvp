@@ -105,6 +105,49 @@ function installFirebaseAdapter(FB) {
     }
   }
 
+  // Codex P2 #9: 레거시 /seniors 노드 자동 마이그레이션.
+  // public/private 분리 이전 데이터가 남아있으면 분리해 옮기되 원본은 보존.
+  // 안전 설계 (Codex 검토 반영):
+  //   - /migrations/seniors_split_v1 플래그로 완료 표시 — 부분 실패 시 재시도 가능
+  //   - 이미 분리된 UID는 skip (멱등성). 누락 UID만 복사.
+  //   - 레거시 /seniors는 절대 삭제 안 함. 라이브 race 시에도 원본 손실 ✗.
+  (async () => {
+    try {
+      const done = await FB.readPath("/migrations/seniors_split_v1");
+      if (done === true) return;
+      const legacy = await FB.readPath("/seniors");
+      if (!legacy || typeof legacy !== "object") {
+        await FB.writePath("/migrations/seniors_split_v1", true);
+        return;
+      }
+      const existingPublic = (await FB.readPath("/seniors_public")) || {};
+      const existingPrivate = (await FB.readPath("/seniors_private")) || {};
+      console.log("[CareSafe] 레거시 /seniors 마이그레이션 시작 — 누락 부분만 복사");
+      let copied = 0, skipped = 0, partial = 0;
+      for (const [uid, s] of Object.entries(legacy)) {
+        const havePub = !!existingPublic[uid];
+        const havePrv = !!existingPrivate[uid];
+        if (havePub && havePrv) { skipped++; continue; }
+        const senior = { ...s, id: uid };
+        const { pub, prv } = _splitSeniorObj(senior);
+        if (prv.locationConsent === undefined) prv.locationConsent = false;
+        // 부분 실패 회복: 없는 쪽만 다시 쓰기
+        if (!havePub) await FB.writePath(`/seniors_public/${uid}`, pub);
+        if (!havePrv) await FB.writePath(`/seniors_private/${uid}`, prv);
+        if (senior.qrToken) {
+          const existingQr = await FB.readPath(`/qr_index/${senior.qrToken}`);
+          if (!existingQr) await FB.writePath(`/qr_index/${senior.qrToken}`, uid);
+        }
+        if (havePub || havePrv) partial++;
+        else copied++;
+      }
+      await FB.writePath("/migrations/seniors_split_v1", true);
+      console.log(`[CareSafe] 마이그레이션 완료: 신규 ${copied} · 부분복구 ${partial} · skip ${skipped}. 레거시 /seniors는 운영자 수동 정리 대상.`);
+    } catch (e) {
+      console.warn("[CareSafe] 레거시 마이그레이션 실패 (다음 로드에서 재시도):", e);
+    }
+  })();
+
   // 4개 path 실시간 구독 (public/private 분리)
   FB.watchPath("/seniors_public", (data) => {
     if (data) {

@@ -266,6 +266,20 @@
     broadcast({ type: 'senior_deleted', uid });
   }
 
+  // ---------- HTML escape (XSS 방어 — Codex P2 #6) ----------
+  // 모든 사용자 입력 데이터 (시니어 이름·메모·알림 텍스트·주소 등)는
+  // innerHTML 템플릿에 들어가기 전 esc() 통과 필수.
+  const _ESC_MAP = { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" };
+  function esc(s) {
+    if (s == null) return "";
+    return String(s).replace(/[&<>"']/g, ch => _ESC_MAP[ch]);
+  }
+  // attribute value 용 — 특히 onclick="...'${value}'..." 같은 패턴 회피용
+  function escAttr(s) {
+    if (s == null) return "";
+    return String(s).replace(/[&<>"']/g, ch => _ESC_MAP[ch]);
+  }
+
   // ---------- formatting ----------
   function fmtTime(ts) {
     const d = new Date(ts);
@@ -301,6 +315,7 @@
     addAlert, setStatus, setActive,
     saveSenior, deleteSenior,
     fmtTime, fmtClock, toast,
+    esc, escAttr,
     _subs: subs, _fireLocal: fireLocal,
   };
 })();

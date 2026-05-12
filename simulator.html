@@ -266,11 +266,17 @@
 <script type="module" src="app-firebase.js"></script>
 <script src="data/meds-runtime.js"></script>
 <script>
+// Codex P2 #6: XSS escape helper
+const E = (window.CareSafe && window.CareSafe.esc) || function(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+};
+
 function populateSelect() {
   const state = CareSafe.load();
   const sel = document.getElementById('uidSelect');
   sel.innerHTML = state.seniors.map(s =>
-    `<option value="${s.id}" ${s.id === state.activeUid ? 'selected' : ''}>${s.name} (${s.age}세) · ${s.region}</option>`
+    `<option value="${E(s.id)}" ${s.id === state.activeUid ? 'selected' : ''}>${E(s.name)} (${E(s.age)}세) · ${E(s.region)}</option>`
   ).join('');
   sel.onchange = () => CareSafe.setActive(sel.value);
 }
@@ -314,9 +320,9 @@ function trigger(kind) {
   if (!preset) return;
   const alert = { uid: state.activeUid, type: preset.type, level: preset.level, text: preset.text };
 
-  // 위치 첨부 (시니어가 동의했고 위치 정보가 있을 때만)
+  // 위치 첨부 (Codex P2 #9: 명시적 opt-in. 기본 false. PIPA §23 민감정보)
   const senior = state.seniors.find(s => s.id === state.activeUid);
-  const consented = senior?.locationConsent !== false;  // 기본 동의 (toggle off 시만 미첨부)
+  const consented = senior?.locationConsent === true;
   if (consented && preset.type === 'sos') {
     const loc = _getCurrentLocation();
     if (loc) alert.location = loc;
@@ -429,17 +435,18 @@ function renderMedAlerts() {
   let html = '';
   if (pending.length > 0) {
     pending.forEach(slot => {
+      // Codex P2 #6: XSS escape + 인라인 onclick 제거 (data-slot/data-med 위임)
       html += `
         <div class="med-card">
           <div class="header">
             <span class="ic">💊</span>
             <span class="label">복약 시간</span>
-            <span style="margin-left:auto;color:#92400E;font-size:13px;font-weight:600">⏰ ${slot.time}</span>
+            <span style="margin-left:auto;color:#92400E;font-size:13px;font-weight:600">⏰ ${E(slot.time)}</span>
           </div>
-          <h3>${slot.medName}</h3>
-          <div class="dose">${slot.medDose || ''}</div>
-          ${slot.medFor ? `<div class="meta">${slot.medFor}</div>` : ''}
-          <button class="took-btn" data-slot="${slot.fullKey}" onclick="markTaken('${slot.fullKey}', '${slot.medName.replace(/'/g,'')}')">💊 먹었어요</button>
+          <h3>${E(slot.medName)}</h3>
+          <div class="dose">${E(slot.medDose || '')}</div>
+          ${slot.medFor ? `<div class="meta">${E(slot.medFor)}</div>` : ''}
+          <button class="took-btn" data-slot="${E(slot.fullKey)}" data-med="${E(slot.medName)}">💊 먹었어요</button>
         </div>`;
     });
   }
@@ -454,6 +461,13 @@ function renderMedAlerts() {
   }
   host.innerHTML = html;
 }
+
+// Codex P2 #6 (재검토): 인라인 onclick 위임 — '먹었어요' 버튼 XSS 차단
+document.getElementById('medAlertsHost')?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('.took-btn[data-slot]');
+  if (!btn) return;
+  markTaken(btn.dataset.slot, btn.dataset.med || '');
+});
 
 function markTaken(fullKey, medName) {
   const state = CareSafe.load();

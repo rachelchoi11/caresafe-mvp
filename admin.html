@@ -26,9 +26,39 @@
   .no-ack-row { background:#FEE2E2 !important; }
   .kpi.measuring .n { color:#94A3B8; font-size:18px; }
   .kpi-explain { font-size:11px; color:#94A3B8; margin-top:4px; }
+
+  /* Codex P2 #8: 관리자 권한 게이트 */
+  .admin-gate {
+    position:fixed; inset:0; background:#F8FAFC;
+    display:none; align-items:center; justify-content:center;
+    z-index:9999; padding:24px;
+  }
+  .admin-gate-card {
+    max-width:520px; background:white; border:1px solid #E2E8F0;
+    border-radius:12px; padding:32px; text-align:center;
+    box-shadow:0 8px 24px rgba(15,23,42,0.08);
+  }
+  .admin-gate-card h2 { margin:0 0 12px; color:#DC2626; font-size:22px; }
+  .admin-gate-card p { color:#475569; line-height:1.6; margin:8px 0; font-size:14px; }
+  .admin-gate-card .uid { font-family:monospace; background:#F1F5F9; padding:6px 10px; border-radius:6px; font-size:12px; word-break:break-all; }
+  .admin-gate-card a.btn { display:inline-block; margin-top:16px; }
+  body.gate-checking .admin, body.gate-denied .admin { visibility:hidden; }
 </style>
 </head>
-<body>
+<body class="gate-checking">
+
+<!-- Codex P2 #8: 관리자 권한 게이트 (Firebase 모드에서만 활성) -->
+<div id="adminGate" class="admin-gate">
+  <div class="admin-gate-card">
+    <h2>🔒 관리자 권한이 필요합니다</h2>
+    <p>이 페이지는 CareSafe 운영자(관리자) 전용입니다.</p>
+    <p>관리자 권한이 필요하시면 운영 담당자에게 아래 사용자 ID 등록을 요청해주세요.</p>
+    <p class="uid" id="gateUid">—</p>
+    <p style="font-size:12px;color:#94A3B8">담당자가 Firebase Console에서 <code>/admins/{사용자 ID}: true</code> 추가 후 새로고침</p>
+    <a href="index.html" class="btn">홈으로</a>
+  </div>
+</div>
+
 <div class="admin">
   <aside class="sidebar">
     <div class="brand"><span class="brand-logo">CS</span> CareSafe <span style="font-size:12px;opacity:0.6;margin-left:auto">v0.2</span></div>
@@ -199,12 +229,52 @@
 <script src="mode-link.js"></script>
 <script type="module" src="app-firebase.js"></script>
 <script>
+// Codex P2 #8: 관리자 권한 게이트
+//   - Firebase 모드: /admins/{uid}: true 이어야 통과. 아니면 게이트 표시.
+//   - 로컬 모드: 게이트 우회 (개발·시연용).
+//   - Security Rules가 /users·/pilots 읽기를 admins 화이트리스트로 제한하므로
+//     클라이언트 우회 시도해도 데이터 조회 자체가 거부됨.
+const _FB_MODE = new URLSearchParams(location.search).get('mode') === 'firebase';
+function showAdminGate(uid) {
+  document.body.classList.remove('gate-checking');
+  document.body.classList.add('gate-denied');
+  document.getElementById('gateUid').textContent = uid || '(로그인 후 확인)';
+  document.getElementById('adminGate').style.display = 'flex';
+}
+function clearAdminGate() {
+  document.body.classList.remove('gate-checking', 'gate-denied');
+  document.getElementById('adminGate').style.display = 'none';
+}
+async function checkAdminRole() {
+  if (!_FB_MODE) { clearAdminGate(); return true; }
+  if (!window.CareSafeFB || !window.CareSafeUser) return false;
+  try {
+    const isAdmin = await window.CareSafeFB.readPath(`/admins/${window.CareSafeUser.uid}`);
+    if (isAdmin === true) { clearAdminGate(); return true; }
+    showAdminGate(window.CareSafeUser.uid);
+    return false;
+  } catch (e) {
+    console.warn('[Admin] 권한 확인 실패:', e);
+    showAdminGate(window.CareSafeUser?.uid);
+    return false;
+  }
+}
+window.addEventListener('caresafe-auth-ready', checkAdminRole);
+// 로컬 모드는 즉시 통과
+if (!_FB_MODE) clearAdminGate();
+
 const ICONS = { sos: '🆘', fall: '⚠️', battery: '🔋', medication: '💊', activity: '🟢', inactivity: '⏸️' };
 const LEVEL_TEXT = { ok: '정상', warn: '주의', danger: '위급' };
 const STAGE_LABEL = { contact: '접촉', interview: '인터뷰', mou: 'MOU 협의', active: '운영 중' };
 const COG_LABEL = { alert: '명료', mild_impairment: '경도 인지저하', dementia_mild: '경증 치매', dementia_moderate: '중등도 치매' };
 
 function fmtDate(ts) { return ts ? new Date(ts).toLocaleDateString('ko-KR') : '—'; }
+
+// Codex P2 #6: XSS escape helper (uses CareSafe.esc if available)
+const E = (window.CareSafe && window.CareSafe.esc) || function(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+};
 
 function setTab(name) {
   document.querySelectorAll('.admin-section').forEach(el => el.classList.remove('active'));
@@ -284,29 +354,34 @@ function render() {
   document.getElementById('kHospitals').textContent = '3';
 
   // ===== 시니어 행 (compact + full) =====
-  const compactRows = state.seniors.map(s => `
+  const compactRows = state.seniors.map(s => {
+    const safeStatus = ['ok','warn','danger'].includes(s.status) ? s.status : 'ok';
+    return `
     <tr>
-      <td><strong>${s.name}</strong> <span class="muted">${s.age}세</span></td>
-      <td>${s.region || '—'}</td>
-      <td><span class="pill ${s.status}">${LEVEL_TEXT[s.status]}</span></td>
-      <td>${s.battery != null ? s.battery + '%' : '—'}</td>
-      <td>${CareSafe.fmtTime(s.lastPing)}</td>
-      <td class="muted">${s.note || ''}</td>
-    </tr>
-  `).join('');
+      <td><strong>${E(s.name)}</strong> <span class="muted">${E(s.age)}세</span></td>
+      <td>${E(s.region || '—')}</td>
+      <td><span class="pill ${safeStatus}">${LEVEL_TEXT[safeStatus]}</span></td>
+      <td>${s.battery != null ? E(s.battery) + '%' : '—'}</td>
+      <td>${E(CareSafe.fmtTime(s.lastPing))}</td>
+      <td class="muted">${E(s.note || '')}</td>
+    </tr>`;
+  }).join('');
   document.getElementById('seniorRowsCompact').innerHTML = compactRows;
 
-  const fullRows = state.seniors.map(s => `
+  const fullRows = state.seniors.map(s => {
+    const safeStatus = ['ok','warn','danger'].includes(s.status) ? s.status : 'ok';
+    const doctorText = s.doctor ? `${E(s.doctor.hospital || '')} · ${E(s.doctor.name || '')}` : '—';
+    return `
     <tr>
-      <td><strong>${s.name}</strong></td>
-      <td>${s.age}세 · ${s.gender === 'M' ? '남' : '여'}</td>
-      <td>${s.blood || '—'}</td>
-      <td>${s.region || '—'}</td>
-      <td>${s.doctor ? (s.doctor.hospital || '') + ' · ' + (s.doctor.name || '') : '—'}</td>
-      <td>${s.qrToken ? '✓ ' + s.qrToken.slice(0,4) + '…' : '✗'}</td>
-      <td><span class="pill ${s.status}">${LEVEL_TEXT[s.status]}</span></td>
-    </tr>
-  `).join('');
+      <td><strong>${E(s.name)}</strong></td>
+      <td>${E(s.age)}세 · ${s.gender === 'M' ? '남' : '여'}</td>
+      <td>${E(s.blood || '—')}</td>
+      <td>${E(s.region || '—')}</td>
+      <td>${doctorText}</td>
+      <td>${s.qrToken ? '✓ ' + E(String(s.qrToken).slice(0,4)) + '…' : '✗'}</td>
+      <td><span class="pill ${safeStatus}">${LEVEL_TEXT[safeStatus]}</span></td>
+    </tr>`;
+  }).join('');
   document.getElementById('seniorRowsFull').innerHTML = fullRows ||
     '<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">등록된 시니어 없음</td></tr>';
 
@@ -314,12 +389,14 @@ function render() {
   const feed = state.alerts.slice(0, 15);
   document.getElementById('feedList').innerHTML = feed.map(a => {
     const senior = state.seniors.find(x => x.id === a.uid);
+    const safeLevel = ['ok','warn','danger'].includes(a.level) ? a.level : 'ok';
+    const safeIcon = ICONS[a.type] || '🔔';
     return `
-      <li class="list-item ${a.level}">
-        <div class="icon">${ICONS[a.type] || '🔔'}</div>
+      <li class="list-item ${safeLevel}">
+        <div class="icon">${safeIcon}</div>
         <div class="body">
-          <div class="t">${a.text}</div>
-          <div class="s">${senior ? senior.name + ' · ' : ''}${CareSafe.fmtTime(a.time)}</div>
+          <div class="t">${E(a.text)}</div>
+          <div class="s">${senior ? E(senior.name) + ' · ' : ''}${E(CareSafe.fmtTime(a.time))}</div>
         </div>
       </li>`;
   }).join('') || '<li class="muted" style="padding:20px;text-align:center">알림 없음</li>';
@@ -356,14 +433,16 @@ function renderAlertHistory() {
   document.getElementById('alertHistoryRows').innerHTML = rows.slice(0, 100).map(a => {
     const senior = state.seniors.find(s => s.id === a.uid);
     const noAck = !a.ack_ts && (now - a.time) > 24 * 3600 * 1000;
+    const safeLevel = ['ok','warn','danger'].includes(a.level) ? a.level : 'ok';
+    const safeIcon = ICONS[a.type] || '';
     return `
       <tr class="${noAck ? 'no-ack-row' : ''}">
-        <td>${CareSafe.fmtTime(a.time)}</td>
-        <td>${senior?.name || '—'}</td>
-        <td>${ICONS[a.type] || ''} ${a.type}</td>
-        <td><span class="pill ${a.level}">${LEVEL_TEXT[a.level]}</span></td>
-        <td>${a.text}</td>
-        <td>${a.ack_ts ? '✓ ' + CareSafe.fmtTime(a.ack_ts) : (noAck ? '⚠️ 미확인' : '미확인')}</td>
+        <td>${E(CareSafe.fmtTime(a.time))}</td>
+        <td>${E(senior?.name || '—')}</td>
+        <td>${safeIcon} ${E(a.type)}</td>
+        <td><span class="pill ${safeLevel}">${LEVEL_TEXT[safeLevel]}</span></td>
+        <td>${E(a.text)}</td>
+        <td>${a.ack_ts ? '✓ ' + E(CareSafe.fmtTime(a.ack_ts)) : (noAck ? '⚠️ 미확인' : '미확인')}</td>
       </tr>`;
   }).join('') || '<tr><td colspan="6" class="muted" style="text-align:center;padding:20px">조건에 맞는 알림 없음</td></tr>';
 }
@@ -378,17 +457,17 @@ async function renderGuardians() {
     const users = await window.CareSafeFB.readPath('/users');
     const rows = Object.entries(users || {}).map(([uid, u]) => `
       <tr>
-        <td>${u.name || '—'}</td>
-        <td>${u.email || '—'}</td>
-        <td>${u.role || 'guardian'}</td>
-        <td>${fmtDate(u.createdAt)}</td>
+        <td>${E(u.name || '—')}</td>
+        <td>${E(u.email || '—')}</td>
+        <td>${E(u.role || 'guardian')}</td>
+        <td>${E(fmtDate(u.createdAt))}</td>
         <td>${u.acceptedToS ? '✓' : '✗'} 약관 / ${u.acceptedPrivacy ? '✓' : '✗'} 개인정보</td>
       </tr>`).join('');
     document.getElementById('guardianRows').innerHTML = rows ||
       '<tr><td colspan="5" class="muted" style="text-align:center; padding:20px">등록된 보호자 없음</td></tr>';
   } catch (e) {
     document.getElementById('guardianRows').innerHTML =
-      `<tr><td colspan="5" class="muted" style="text-align:center; padding:20px">조회 실패: ${e.message}</td></tr>`;
+      `<tr><td colspan="5" class="muted" style="text-align:center; padding:20px">조회 실패: ${E(e.message)}</td></tr>`;
   }
 }
 
@@ -410,15 +489,18 @@ async function renderPilots() {
     ];
   }
   _pilotsCache = pilots;
-  document.getElementById('pilotRows').innerHTML = pilots.map((p, idx) => `
+  document.getElementById('pilotRows').innerHTML = pilots.map((p, idx) => {
+    const safeStage = STAGE_LABEL[p.stage] ? p.stage : 'contact';
+    return `
     <tr class="pilot-row" data-idx="${idx}">
-      <td><strong>${p.org}</strong></td>
-      <td>${p.contact}</td>
-      <td><span class="stage-pill ${p.stage}">${STAGE_LABEL[p.stage] || p.stage}</span></td>
-      <td>${p.households || 0} 가구</td>
-      <td class="muted">${p.note || ''}</td>
+      <td><strong>${E(p.org)}</strong></td>
+      <td>${E(p.contact)}</td>
+      <td><span class="stage-pill ${safeStage}">${STAGE_LABEL[safeStage] || E(p.stage)}</span></td>
+      <td>${E(p.households || 0)} 가구</td>
+      <td class="muted">${E(p.note || '')}</td>
       <td></td>
-    </tr>`).join('') ||
+    </tr>`;
+  }).join('') ||
     '<tr><td colspan="6" class="muted" style="text-align:center;padding:20px">체험단 기록 없음</td></tr>';
 }
 

@@ -210,6 +210,8 @@
 <script>
 const ICONS = { sos: '🆘', fall: '⚠️', battery: '🔋', medication: '💊', activity: '🟢', inactivity: '⏸️' };
 const LEVEL_TEXT = { ok: '정상', warn: '주의', danger: '위급' };
+// Codex P2 #6: XSS escape
+const E = window.CareSafe?.esc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
 
 // 필터 상태
 const filter = {
@@ -285,12 +287,12 @@ function render() {
       ? `전체 ${allAlerts.length}건`
       : `필터 ${filtered.length} / 전체 ${allAlerts.length}`;
 
-  // 시니어 칩 (필터)
+  // 시니어 칩 (필터) — Codex P2 #6 escape
   const seniorChips = document.getElementById('fSeniors');
   const chips = [
     `<button class="chip ${filter.uid==='all'?'active':''}" data-uid="all">전체</button>`,
     ...state.seniors.map(s =>
-      `<button class="chip ${filter.uid===s.id?'active':''}" data-uid="${s.id}">${s.name}</button>`
+      `<button class="chip ${filter.uid===s.id?'active':''}" data-uid="${E(s.id)}">${E(s.name)}</button>`
     )
   ];
   seniorChips.innerHTML = chips.join('');
@@ -319,17 +321,20 @@ function render() {
     list.forEach(a => {
       const senior = state.seniors.find(s => s.id === a.uid);
       const noAck = !a.ack_ts && (now - a.time) > 24*3600*1000;
+      // Codex P2 #6: XSS escape
+      const safeLevel = ['ok','warn','danger'].includes(a.level) ? a.level : 'ok';
+      const safeType = ICONS[a.type] || '🔔';
       const locHtml = a.location && a.location.address
-        ? `<div class="meta" style="margin-top:2px"><a href="https://maps.google.com/?q=${a.location.lat},${a.location.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none;color:#0F766E;font-size:12px">📍 ${a.location.address}</a></div>`
+        ? `<div class="meta" style="margin-top:2px"><a href="https://maps.google.com/?q=${encodeURIComponent(a.location.lat)},${encodeURIComponent(a.location.lng)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none;color:#0F766E;font-size:12px">📍 ${E(a.location.address)}</a></div>`
         : '';
       html += `
-        <div class="alert-row ${a.level} ${noAck ? 'no-ack' : ''}" onclick="openGuideForAlert('${a.id}')">
-          <div class="ic">${ICONS[a.type] || '🔔'}</div>
+        <div class="alert-row ${safeLevel} ${noAck ? 'no-ack' : ''}" data-alert-id="${E(a.id)}">
+          <div class="ic">${safeType}</div>
           <div class="body">
-            <div class="text">${a.text}</div>
+            <div class="text">${E(a.text)}</div>
             <div class="meta">
-              <span class="pill-sm ${a.level}">${LEVEL_TEXT[a.level]}</span>
-              ${senior ? `<span>👵 ${senior.name}</span>` : ''}
+              <span class="pill-sm ${safeLevel}">${LEVEL_TEXT[safeLevel]}</span>
+              ${senior ? `<span>👵 ${E(senior.name)}</span>` : ''}
               <span>🕐 ${fmtTime(a.time)}</span>
               <span class="ack ${a.ack_ts ? '' : 'no'}">${a.ack_ts ? '✓ 확인' : (noAck ? '⚠ 미확인' : '미확인')}</span>
             </div>
@@ -340,6 +345,14 @@ function render() {
   }
   container.innerHTML = html;
 }
+
+// Codex P2 #6 (재검토 후): 인라인 onclick 대신 위임 — HTML 엔티티 디코딩 우회 XSS 차단
+document.getElementById('alertGroups').addEventListener('click', (ev) => {
+  const row = ev.target.closest('.alert-row[data-alert-id]');
+  if (!row) return;
+  if (ev.target.closest('a[href]')) return; // 위치 링크는 그대로
+  openGuideForAlert(row.dataset.alertId);
+});
 
 // 필터 칩 이벤트 (시니어 외)
 document.querySelectorAll('.chip[data-level]').forEach(c => {
@@ -431,12 +444,12 @@ function openGuideForAlert(alertId) {
   sev.textContent = LEVEL_TEXT[guide.severity] || '';
   sev.className = 'severity-pill ' + (guide.severity || '');
   document.getElementById('guideSteps').innerHTML = (guide.steps || []).map(s =>
-    `<li><div><div class="do">${s.do || ''}</div><div class="note">${s.note || ''}</div></div></li>`).join('');
+    `<li><div><div class="do">${E(s.do || '')}</div><div class="note">${E(s.note || '')}</div></div></li>`).join('');
   const pBox = document.getElementById('guidePitfalls');
   const pList = document.getElementById('guidePitfallList');
   if (guide.pitfalls && guide.pitfalls.length) {
     pBox.style.display = 'block';
-    pList.innerHTML = guide.pitfalls.map(t => `<li>${t}</li>`).join('');
+    pList.innerHTML = guide.pitfalls.map(t => `<li>${E(t)}</li>`).join('');
   } else { pBox.style.display = 'none'; }
   document.getElementById('guideModal').style.display = 'flex';
 }

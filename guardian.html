@@ -473,8 +473,8 @@
             <div class="sf-field">
               <label>위치 추적 동의</label>
               <select id="sfLocConsent">
-                <option value="true">동의 (위치 함께 전송) — 권장</option>
-                <option value="false">미동의 (텍스트 알림만)</option>
+                <option value="false">미동의 (텍스트 알림만) — 기본</option>
+                <option value="true">동의 (위치 함께 전송)</option>
               </select>
             </div>
           </div>
@@ -552,6 +552,8 @@
 <script>
 const ICONS = { sos: '🆘', fall: '⚠️', battery: '🔋', medication: '💊', activity: '🟢', inactivity: '⏸️' };
 const LEVEL_TEXT = { ok: '정상', warn: '주의', danger: '위급' };
+// Codex P2 #6: XSS escape — 모든 사용자 입력 데이터에 적용. CareSafe.esc 사용.
+const E = window.CareSafe?.esc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
 
 function render() {
   const state = CareSafe.load();
@@ -570,19 +572,23 @@ function render() {
   document.getElementById('sBattery').textContent = active.battery + '%';
   document.getElementById('sPing').textContent = CareSafe.fmtTime(active.lastPing);
 
-  // alerts (클릭 시 대응가이드 모달 — AI 변형 매칭)
+  // alerts (클릭 시 대응가이드 모달 — AI 변형 매칭). Codex P2 #6: XSS escape 적용.
   const mine = state.alerts.filter(a => a.uid === active.id).slice(0, 6);
   const ul = document.getElementById('alertList');
   ul.innerHTML = mine.map(a => {
+    // a.location은 외부 senor에서 옴 — address 신뢰 X
     const locHtml = a.location && a.location.address
-      ? `<div class="s" style="color:#0F766E"><a href="https://maps.google.com/?q=${a.location.lat},${a.location.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none;color:#0F766E">📍 ${a.location.address}</a></div>`
+      ? `<div class="s" style="color:#0F766E"><a href="https://maps.google.com/?q=${encodeURIComponent(a.location.lat)},${encodeURIComponent(a.location.lng)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none;color:#0F766E">📍 ${E(a.location.address)}</a></div>`
       : '';
+    // a.level은 enum — pill class에 안전. a.id는 임의 문자열 가능 — escAttr 필요.
+    const safeLevel = ['ok','warn','danger'].includes(a.level) ? a.level : 'ok';
+    const safeType = ICONS[a.type] || '🔔';
     return `
-    <li class="list-item alert-clickable ${a.level}" onclick="openGuideForAlert('${a.id}')">
-      <div class="icon">${ICONS[a.type] || '🔔'}</div>
+    <li class="list-item alert-clickable ${safeLevel}" data-alert-id="${E(a.id)}">
+      <div class="icon">${safeType}</div>
       <div class="body">
-        <div class="t">${a.text}</div>
-        <div class="s">${CareSafe.fmtTime(a.time)} · <span class="pill ${a.level}">${LEVEL_TEXT[a.level]}</span></div>
+        <div class="t">${E(a.text)}</div>
+        <div class="s">${CareSafe.fmtTime(a.time)} · <span class="pill ${safeLevel}">${LEVEL_TEXT[safeLevel]}</span></div>
         ${locHtml}
       </div>
       <span class="alert-chevron">대응가이드 ›</span>
@@ -590,17 +596,20 @@ function render() {
   }).join('') || '<li class="muted" style="padding:16px; text-align:center">아직 알림이 없습니다</li>';
   document.getElementById('alertCount').textContent = mine.length + '건';
 
-  // switcher
+  // switcher — Codex P2 #6 (재검토): 인라인 onclick 대신 data-uid + 위임
   const sw = document.getElementById('seniorSwitch');
-  sw.innerHTML = state.seniors.map(s => `
-    <li class="list-item ${s.id === active.id ? 'ok' : ''}" style="cursor:pointer" onclick="CareSafe.setActive('${s.id}'); render();">
+  sw.innerHTML = state.seniors.map(s => {
+    const safeStatus = ['ok','warn','danger'].includes(s.status) ? s.status : 'ok';
+    return `
+    <li class="list-item ${s.id === active.id ? 'ok' : ''}" style="cursor:pointer" data-uid="${E(s.id)}">
       <div class="icon">${s.id === active.id ? '✅' : '👵'}</div>
       <div class="body">
-        <div class="t">${s.name} (${s.age}세)</div>
-        <div class="s">${s.region} · ${s.guardian}</div>
+        <div class="t">${E(s.name)} (${E(s.age)}세)</div>
+        <div class="s">${E(s.region)} · ${E(s.guardian)}</div>
       </div>
-      <span class="pill ${s.status}">${LEVEL_TEXT[s.status]}</span>
-    </li>`).join('');
+      <span class="pill ${safeStatus}">${LEVEL_TEXT[safeStatus]}</span>
+    </li>`;
+  }).join('');
 
   // 응급정보 카드 미리보기 + QR 링크
   renderEmergencyCard(active);
@@ -645,11 +654,12 @@ function renderMedsStatus(senior) {
       stateLabel = '⚠️ 누락';
       stateColor = '#DC2626';
     }
+    // Codex P2 #6: 약 이름·용량·시간 사용자 입력 — escape
     return `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #F1F5F9;font-size:14px">
         <div>
-          <div style="font-weight:600;color:#0F172A">${s.medName} <span style="color:#64748B;font-weight:500">${s.medDose || ''}</span></div>
-          <div style="color:#94A3B8;font-size:12px">⏰ ${s.time}</div>
+          <div style="font-weight:600;color:#0F172A">${E(s.medName)} <span style="color:#64748B;font-weight:500">${E(s.medDose || '')}</span></div>
+          <div style="color:#94A3B8;font-size:12px">⏰ ${E(s.time)}</div>
         </div>
         <span style="color:${stateColor};font-weight:700;font-size:12px">${stateLabel}</span>
       </div>`;
@@ -657,21 +667,47 @@ function renderMedsStatus(senior) {
 }
 
 // ===== 2시간+ 미체크 자동 알림 (중복 방지) =====
-const _medMissedFired = new Set();  // fullKey → fired
-function checkMissedMeds() {
+// Codex P2 #7: 서버측 idempotency.
+//   - 로컬 모드: 메모리 Set으로 동일 탭 내 중복만 차단.
+//   - Firebase 모드: /med_alerts/{uid}/{dayKey}/{slotKey} reserveOnce 트랜잭션.
+//     여러 탭·기기·재로그인에도 한 슬롯당 1회만 발사.
+const _medMissedFired = new Set();
+async function checkMissedMeds() {
   const state = CareSafe.load();
   if (!window.CareSafeMeds) return;
+  const isFb = new URLSearchParams(location.search).get('mode') === 'firebase';
+  const dayKey = window.CareSafeMeds.ymd();
   for (const senior of state.seniors) {
     const missed = window.CareSafeMeds.missedSlots(senior);
     for (const slot of missed) {
       if (_medMissedFired.has(slot.fullKey)) continue;
-      _medMissedFired.add(slot.fullKey);
-      CareSafe.addAlert({
-        uid: senior.id,
-        type: 'medication',
-        level: 'warn',
-        text: `💊 ${slot.medName} (${slot.time}) 2시간+ 미체크 — 안부 전화 권유`,
-      });
+      let path = null;
+      let canFire = true;
+      if (isFb && window.CareSafeFB?.reserveOnce) {
+        path = `/med_alerts/${senior.id}/${dayKey}/${slot.slotKey}`;
+        canFire = await window.CareSafeFB.reserveOnce(path, {
+          firedAt: Date.now(),
+          medName: slot.medName,
+          time: slot.time,
+        });
+      }
+      // Codex P2 review #6: 실패 시엔 Set에 추가하지 않음 (다음 폴링에서 재시도)
+      if (!canFire) continue;
+      try {
+        await CareSafe.addAlert({
+          uid: senior.id,
+          type: 'medication',
+          level: 'warn',
+          text: `💊 ${slot.medName} (${slot.time}) 2시간+ 미체크 — 안부 전화 권유`,
+        });
+        _medMissedFired.add(slot.fullKey);
+      } catch (e) {
+        console.warn('[Meds] addAlert 실패, 예약 롤백:', e);
+        // Codex P2 review #2: addAlert 실패 시 예약 롤백 — 다음 폴링에서 재시도 가능
+        if (path && window.CareSafeFB?.writePath) {
+          window.CareSafeFB.writePath(path, null).catch(() => {});
+        }
+      }
     }
   }
 }
@@ -850,14 +886,14 @@ function _renderGuideModal(guide) {
   const stepsEl = document.getElementById('guideSteps');
   stepsEl.innerHTML = (guide.steps || []).map(s => `
     <li><div>
-      <div class="do">${s.do || ''}</div>
-      <div class="note">${s.note || ''}</div>
+      <div class="do">${E(s.do || '')}</div>
+      <div class="note">${E(s.note || '')}</div>
     </div></li>`).join('');
   const pitfallBox = document.getElementById('guidePitfalls');
   const pitfallList = document.getElementById('guidePitfallList');
   if (guide.pitfalls && guide.pitfalls.length) {
     pitfallBox.style.display = 'block';
-    pitfallList.innerHTML = guide.pitfalls.map(t => `<li>${t}</li>`).join('');
+    pitfallList.innerHTML = guide.pitfalls.map(t => `<li>${E(t)}</li>`).join('');
   } else {
     pitfallBox.style.display = 'none';
   }
@@ -916,11 +952,12 @@ function openMsgModal() {
   document.getElementById('msgEditArea').value = '';
 
   const listEl = document.getElementById('msgToneList');
+  // Codex P2 #6: AI 사전 생성 변형은 dev 제어지만 안전상 escape
   listEl.innerHTML = variants.map((v, i) => `
     <div class="msg-tone-card" data-idx="${i}" onclick="selectMsgTone(${i})">
-      <span class="tone-label">${v.tone_label || v.tone}</span>
-      <div class="msg-text">${v.message || ''}</div>
-      ${v.hint ? `<div class="msg-hint">💡 ${v.hint}</div>` : ''}
+      <span class="tone-label">${E(v.tone_label || v.tone)}</span>
+      <div class="msg-text">${E(v.message || '')}</div>
+      ${v.hint ? `<div class="msg-hint">💡 ${E(v.hint)}</div>` : ''}
     </div>
   `).join('');
 
@@ -1005,7 +1042,7 @@ function openSeniorForm(uid) {
   setVal('sfDocPhone', ''); setVal('sfDocErPhone', '');
   setVal('sfDnrRegistered', 'false'); setVal('sfDnrNumber', '');
   setVal('sfCog', 'alert'); setVal('sfAssistive', '');
-  setVal('sfLocConsent', 'true');
+  setVal('sfLocConsent', 'false');  // Codex P2 #9: 명시적 opt-in 기본값
 
   document.getElementById('sfContacts').innerHTML = '';
   document.getElementById('sfAllergies').innerHTML = '';
@@ -1039,7 +1076,7 @@ function openSeniorForm(uid) {
     }
     setVal('sfCog', senior.cognitiveBaseline || 'alert');
     setVal('sfAssistive', (senior.assistiveDevices || []).join(', '));
-    setVal('sfLocConsent', senior.locationConsent === false ? 'false' : 'true');
+    setVal('sfLocConsent', senior.locationConsent === true ? 'true' : 'false');  // Codex P2 #9: 명시적 opt-in
     (senior.emergencyContacts || []).forEach(c => sfAddContact(c));
     (senior.allergies || []).forEach(a => sfAddAllergy(typeof a === 'string' ? { agent: a } : a));
     (senior.meds || []).forEach(m => sfAddMed(m));
@@ -1436,16 +1473,17 @@ function renderChecklist(uid) {
   document.getElementById('checklistCount').textContent = `${checked.size} / ${total}`;
   document.getElementById('checklistBar').style.width = total ? Math.round(checked.size / total * 100) + '%' : '0%';
   const body = document.getElementById('checklistBody');
+  // Codex P2 #6 (재검토): 인라인 onclick 제거. data-* 속성 + 위임으로 우회 차단.
   body.innerHTML = sections.map(sec => `
     <div class="checklist-section">
-      <div class="sec-title">${sec.title}</div>
+      <div class="sec-title">${E(sec.title)}</div>
       ${sec.items.map(it => `
         <div class="checklist-item ${checked.has(it.key) ? 'done' : ''}"
-             onclick="toggleCheck('${uid}', '${weekKey}', '${it.key}')">
+             data-uid="${E(uid)}" data-week="${E(weekKey)}" data-key="${E(it.key)}">
           <div class="checkbox">${checked.has(it.key) ? '✓' : ''}</div>
           <div class="text">
-            ${it.text}
-            <div class="tip">${it.tip || ''}</div>
+            ${E(it.text)}
+            <div class="tip">${E(it.tip || '')}</div>
           </div>
         </div>
       `).join('')}
@@ -1466,11 +1504,12 @@ function renderEmergencyCard(senior) {
     ? senior.allergies.map(a => typeof a === 'string' ? a : (a.agent || '')).filter(Boolean).join(', ')
     : '없음';
 
+  // Codex P2 #6: XSS escape — allergyText는 이미 join, c1.name escape 필수.
   preview.innerHTML = `
-    <div class="muted" style="display:flex; justify-content:space-between"><span>혈액형</span><strong style="color:#0F172A">${senior.blood || '—'}</strong></div>
-    <div class="muted" style="display:flex; justify-content:space-between"><span>알레르기</span><strong style="color:${senior.allergies?.length ? '#DC2626' : '#0F172A'}">${allergyText}</strong></div>
+    <div class="muted" style="display:flex; justify-content:space-between"><span>혈액형</span><strong style="color:#0F172A">${E(senior.blood || '—')}</strong></div>
+    <div class="muted" style="display:flex; justify-content:space-between"><span>알레르기</span><strong style="color:${senior.allergies?.length ? '#DC2626' : '#0F172A'}">${E(allergyText)}</strong></div>
     <div class="muted" style="display:flex; justify-content:space-between"><span>복용약</span><strong style="color:#0F172A">${medsCount}종</strong></div>
-    <div class="muted" style="display:flex; justify-content:space-between"><span>1순위 연락처</span><strong style="color:#0F172A">${c1 ? c1.name : '—'}</strong></div>
+    <div class="muted" style="display:flex; justify-content:space-between"><span>1순위 연락처</span><strong style="color:#0F172A">${c1 ? E(c1.name) : '—'}</strong></div>
   `;
 
   if (senior.qrToken) {
@@ -1533,6 +1572,25 @@ CareSafe.subscribe((msg) => {
     }
   }
   render();
+});
+
+// Codex P2 #6 (재검토): 시니어 스위처·체크리스트·알림 리스트 위임 — 인라인 onclick XSS 우회 차단
+document.getElementById('seniorSwitch').addEventListener('click', (ev) => {
+  const li = ev.target.closest('li[data-uid]');
+  if (!li) return;
+  CareSafe.setActive(li.dataset.uid);
+  render();
+});
+document.getElementById('checklistBody').addEventListener('click', (ev) => {
+  const item = ev.target.closest('.checklist-item[data-key]');
+  if (!item) return;
+  toggleCheck(item.dataset.uid, item.dataset.week, item.dataset.key);
+});
+document.getElementById('alertList').addEventListener('click', (ev) => {
+  if (ev.target.closest('a[href]')) return; // 위치 링크는 그대로
+  const li = ev.target.closest('li.alert-clickable[data-alert-id]');
+  if (!li) return;
+  openGuideForAlert(li.dataset.alertId);
 });
 
 render();

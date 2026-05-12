@@ -12,7 +12,7 @@
 import { initializeApp }
   from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
 import {
-  getDatabase, ref, set, get, push, onValue, serverTimestamp, off,
+  getDatabase, ref, set, get, push, onValue, serverTimestamp, off, runTransaction,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
@@ -64,6 +64,22 @@ function watchPath(path, callback) {
   return () => off(target);
 }
 
+// 원자적 ‘처음 한 번만’ 예약. path 가 비어 있을 때만 value 쓰고 true 반환.
+// 이미 값이 있으면 트랜잭션 abort 후 false 반환.
+// 여러 탭·기기 동시 시도에서도 한 번만 성공 — 알림 중복 방지(P2 #7) 핵심.
+async function reserveOnce(path, value) {
+  try {
+    const result = await runTransaction(ref(db, path), (current) => {
+      if (current !== null && current !== undefined) return; // abort — 이미 존재
+      return value;
+    });
+    return result.committed && result.snapshot.val() != null;
+  } catch (e) {
+    console.warn("[FB reserveOnce] 실패:", path, e);
+    return false;
+  }
+}
+
 // ----- Auth helpers -----
 
 // Google 팝업 로그인. 사용자가 Google 계정 선택 → user 객체 반환.
@@ -86,7 +102,7 @@ function observeAuth(callback) {
 // 운영 단계엔 제거하거나 디버그 플래그로 감쌀 것.
 window.CareSafeFB = {
   app, db, auth,
-  writePath, readPath, pushChild, watchPath,
+  writePath, readPath, pushChild, watchPath, reserveOnce,
   serverTimestamp,
   signInGoogle, signOutUser, observeAuth,
 };

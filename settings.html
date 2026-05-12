@@ -121,6 +121,12 @@
 <script src="mode-link.js"></script>
 <script type="module" src="app-firebase.js"></script>
 <script>
+// Codex P2 #6: XSS escape helper
+const E = (window.CareSafe && window.CareSafe.esc) || function(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+};
+
 function fmtDate(ts) {
   if (!ts) return '—';
   return new Date(ts).toLocaleDateString('ko-KR');
@@ -161,17 +167,17 @@ function render() {
     document.getElementById('agPrivacy').textContent = '로컬 모드';
   }
 
-  // 시니어 목록
+  // 시니어 목록 — Codex P2 #6: XSS escape + data-* 위임
   document.getElementById('setSeniorCount').textContent = state.seniors.length + '명';
   const list = document.getElementById('seniorList');
   list.innerHTML = state.seniors.map(s => `
     <li class="set-senior-item">
       <div style="flex:1">
-        <div style="font-weight:600">${s.name} (${s.age}세)</div>
-        <div style="color:#64748B; font-size:12px">${s.region || ''} · ${s.note || ''}</div>
+        <div style="font-weight:600">${E(s.name)} (${E(s.age)}세)</div>
+        <div style="color:#64748B; font-size:12px">${E(s.region || '')} · ${E(s.note || '')}</div>
       </div>
       <span style="color:#94A3B8; font-size:12px; align-self:center">${s.qrToken ? 'QR ✓' : 'QR ✗'}</span>
-      <button onclick="deleteSenior('${s.id}','${(s.name||'').replace(/'/g,'')}')"
+      <button class="del-senior" data-uid="${E(s.id)}" data-name="${E(s.name || '')}"
         style="background:#FEE2E2;color:#991B1B;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-weight:700;align-self:center;font-size:13px" title="시니어 삭제">✕</button>
     </li>
   `).join('') || '<li class="muted" style="padding:14px; text-align:center">등록된 부모님이 없습니다.</li>';
@@ -233,6 +239,13 @@ async function deleteAccount() {
     alert('삭제 실패: ' + e.message);
   }
 }
+
+// Codex P2 #6 (재검토): 삭제 버튼 위임 — 인라인 onclick XSS 차단
+document.getElementById('seniorList').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('.del-senior[data-uid]');
+  if (!btn) return;
+  deleteSenior(btn.dataset.uid, btn.dataset.name || '');
+});
 
 CareSafe.subscribe(() => render());
 window.addEventListener('caresafe-auth-ready', () => render());
