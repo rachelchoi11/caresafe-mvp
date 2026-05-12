@@ -303,6 +303,12 @@ a { color: inherit; text-decoration: none; }
   position: relative;
   font-weight: 500;
 }
+/* 빈 sub-text 숨김 — dash 어색함 제거 */
+.status-hero .desc:empty,
+.status-hero .time:empty { display: none; }
+.status-hero .who:empty::after,
+.status-hero .desc:empty::after,
+.status-hero .time:empty::after { content: none; }
 
 /* ---------- pills / badges ---------- */
 .pill {

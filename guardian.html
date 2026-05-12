@@ -710,9 +710,9 @@
 
     <!-- 본 컨텐츠 — 돌봄대상자 1명 이상 -->
     <div class="status-hero" id="hero">
-      <div class="who" id="heroWho">—</div>
+      <div class="who" id="heroWho"></div>
       <div class="state" id="heroState">정상</div>
-      <div class="desc" id="heroDesc">—</div>
+      <div class="desc" id="heroDesc"></div>
       <div class="time" id="heroTime"></div>
     </div>
 
@@ -791,7 +791,7 @@
     </details>
 
     <details class="card-collapse">
-      <summary><i data-lucide="clipboard-check" class="ico ico-sm" style="color:var(--primary)"></i><span class="sum-label">이번 주 안전 체크</span><span class="sum-tag" id="checklistCount">0 / 0</span><span class="chev"></span></summary>
+      <summary><i data-lucide="clipboard-check" class="ico ico-sm" style="color:var(--primary)"></i><span class="sum-label">기본 안전 체크</span><span class="sum-tag" id="checklistCount">0 / 0</span><span class="chev"></span></summary>
       <div class="cc-body">
         <div class="checklist-progress"><div id="checklistBar" style="width:0%"></div></div>
         <div id="checklistBody"></div>
@@ -1165,12 +1165,17 @@ function render() {
   document.getElementById('heroWho').textContent = _age ? `${_addr} · ${_age}` : _addr;
   document.getElementById('heroState').textContent = LEVEL_TEXT[active.status] || '정상';
   const lastAlert = state.alerts.find(a => a.uid === active.id);
-  document.getElementById('heroDesc').textContent = active.status === 'danger' ? '긴급 신호 수신 — 즉시 확인 필요' : active.status === 'warn' ? (lastAlert?.text || '주의 필요') : '마지막 활동 감지: ' + CareSafe.fmtTime(active.lastPing);
+  let _desc = '';
+  if (active.status === 'danger') _desc = '긴급 신호 수신 — 즉시 확인 필요';
+  else if (active.status === 'warn') _desc = lastAlert?.text || '주의 필요';
+  else if (active.lastPing) _desc = '마지막 활동 감지: ' + CareSafe.fmtTime(active.lastPing);
+  // 빈 문자열이면 textContent 도 빈 채 → CSS :empty 처리됨
+  document.getElementById('heroDesc').textContent = _desc;
   // 최근 메모 1건 표시 (배열이면 최신, 단일이면 그대로)
   const _latestNote = Array.isArray(active.notes) && active.notes.length
     ? active.notes[active.notes.length - 1].text
     : (active.note || '');
-  document.getElementById('heroTime').textContent = _latestNote;
+  document.getElementById('heroTime').textContent = _latestNote || '';
 
   // stats
   document.getElementById('sBattery').textContent = active.battery + '%';
