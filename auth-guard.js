@@ -83,16 +83,20 @@ function buildOverlay() {
 function buildUserBadge(user) {
   const b = document.createElement("div");
   b.id = "csUserBadge";
+  // 헤더 아래 우측 — 헤더(z-index 20)·sticky hero 위 노출, 컨텐츠 겹침 ❌
   b.style.cssText = `
-    position:fixed; top:8px; left:8px; z-index:9000;
+    position:fixed; top:auto; bottom:80px; right:12px; z-index:25;
     display:flex; align-items:center; gap:6px;
-    background:rgba(15,23,42,0.85); color:white; padding:4px 8px 4px 4px;
-    border-radius:999px; font-size:11px; font-family:system-ui;
-    box-shadow:0 2px 8px rgba(0,0,0,0.15);
+    background:rgba(15,23,42,0.78); color:white; padding:5px 10px 5px 5px;
+    border-radius:999px; font-size:11px;
+    font-family:Pretendard, -apple-system, sans-serif;
+    box-shadow:0 4px 14px rgba(0,0,0,0.18);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    max-width: calc(100vw - 24px);
   `;
   const photo = user.photoURL
-    ? `<img src="${user.photoURL}" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover">`
-    : `<div style="width:20px;height:20px;border-radius:50%;background:#94A3B8;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${(user.displayName || user.email || "?")[0].toUpperCase()}</div>`;
+    ? `<img src="${user.photoURL}" alt="" style="width:22px;height:22px;border-radius:50%;object-fit:cover">`
+    : `<div style="width:22px;height:22px;border-radius:50%;background:#0F766E;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${(user.displayName || user.email || "?")[0].toUpperCase()}</div>`;
   b.innerHTML = `
     ${photo}
     <span style="font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
@@ -100,7 +104,7 @@ function buildUserBadge(user) {
     </span>
     <button id="csSignOutBtn" title="로그아웃"
             style="background:none;border:none;color:white;cursor:pointer;
-                   font-size:11px;opacity:0.7;padding:2px 4px;margin-left:2px">↪</button>
+                   font-size:12px;opacity:0.75;padding:2px 4px;margin-left:2px">↪</button>
   `;
   return b;
 }

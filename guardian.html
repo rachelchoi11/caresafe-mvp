@@ -654,6 +654,8 @@
     height:100%; transition:width 0.3s;
   }
 </style>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
 </head>
 <body class="page">
 <div class="mobile-shell">
@@ -1114,9 +1116,18 @@ let _lucideTimer = null;
 function _renderLucide() {
   if (_lucideTimer) cancelAnimationFrame(_lucideTimer);
   _lucideTimer = requestAnimationFrame(() => {
-    if (window.lucide) window.lucide.createIcons();
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      try { window.lucide.createIcons(); } catch (e) { console.warn('lucide.createIcons:', e); }
+    }
   });
 }
+// 초기 정적 아이콘 렌더 보장 — Lucide CDN 로드 완료 시점에 호출
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', _renderLucide);
+} else {
+  _renderLucide();
+}
+window.addEventListener('load', _renderLucide); // CDN 늦게 도착 케이스
 // Codex P2 #6: XSS escape — 모든 사용자 입력 데이터에 적용. CareSafe.esc 사용.
 const E = window.CareSafe?.esc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
 
@@ -1146,8 +1157,12 @@ function render() {
   // hero — 보호자 기준 관계 사용 (없으면 이름만)
   const hero = document.getElementById('hero');
   hero.className = 'status-hero ' + (active.status === 'ok' ? '' : active.status);
-  const _addr = active.relationship ? `${active.name} ${active.relationship}` : active.name;
-  document.getElementById('heroWho').textContent = `${_addr} · ${active.age}세`;
+  // 안전한 fallback — Firebase 첫 동기화 중 빈 객체 케이스 대비
+  const _name = active.name || '돌봄대상자';
+  const _rel = active.relationship || '';
+  const _age = active.age ? `${active.age}세` : '';
+  const _addr = _rel ? `${_name} ${_rel}` : _name;
+  document.getElementById('heroWho').textContent = _age ? `${_addr} · ${_age}` : _addr;
   document.getElementById('heroState').textContent = LEVEL_TEXT[active.status] || '정상';
   const lastAlert = state.alerts.find(a => a.uid === active.id);
   document.getElementById('heroDesc').textContent = active.status === 'danger' ? '긴급 신호 수신 — 즉시 확인 필요' : active.status === 'warn' ? (lastAlert?.text || '주의 필요') : '마지막 활동 감지: ' + CareSafe.fmtTime(active.lastPing);

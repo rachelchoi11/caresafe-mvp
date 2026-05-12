@@ -329,16 +329,22 @@ function installFirebaseAdapter(FB) {
 }
 
 function injectModeBadge() {
+  // 운영 환경에서는 표시 안 함 (admin 페이지 또는 디버그 모드만)
+  const isAdminPage = location.pathname.includes('admin.html');
+  const debugFlag = location.search.includes('debug=1') ||
+                    localStorage.getItem('caresafe:showModeBadge') === '1';
+  if (!isAdminPage && !debugFlag) return;
   const badge = document.createElement("div");
-  badge.textContent = "🔥 Firebase";
+  badge.textContent = "FB";
+  badge.title = "Firebase 모드";
   Object.assign(badge.style, {
-    position: "fixed", top: "8px", right: "8px",
-    background: "#F59E0B", color: "white",
-    padding: "4px 10px", borderRadius: "999px",
-    fontSize: "11px", fontWeight: "700",
-    zIndex: "9999", fontFamily: "system-ui, sans-serif",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+    position: "fixed", bottom: "12px", left: "12px",
+    background: "rgba(15,23,42,0.6)", color: "white",
+    padding: "3px 8px", borderRadius: "999px",
+    fontSize: "10px", fontWeight: "700",
+    zIndex: "20", fontFamily: "Pretendard, sans-serif",
     pointerEvents: "none",
+    letterSpacing: "0.04em",
   });
   document.body.appendChild(badge);
 }
