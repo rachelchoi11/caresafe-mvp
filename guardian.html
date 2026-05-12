@@ -1137,18 +1137,22 @@ function render() {
   // 빈 상태 분기 (#2 버그·#4 환영) — 돌봄대상자 0명이면 환영 카드만 표시
   const emptyHost = document.getElementById('emptyHost');
   const heroEl = document.getElementById('hero');
-  const contentCards = document.querySelectorAll('.stat-grid, .card, .card-collapse');
+  const noSignalEl = document.getElementById('noSignalBanner');
+  // hero · 무소식 배너 · stat-grid · 모든 카드 · 모든 collapse — 빈 상태일 때 일괄 숨김
+  const contentEls = document.querySelectorAll('.status-hero, .no-signal-banner, .stat-grid, section.content > .card, section.content > details.card-collapse');
   if (state.seniors.length === 0) {
     if (emptyHost) emptyHost.style.display = 'block';
     if (heroEl) heroEl.style.display = 'none';
-    contentCards.forEach(el => { el.style.display = 'none'; });
+    if (noSignalEl) noSignalEl.style.display = 'none';
+    contentEls.forEach(el => { el.style.display = 'none'; });
     document.getElementById('whoTitle').textContent = 'CareSafe';
     document.getElementById('whoSub').textContent = '돌봄대상자를 추가해주세요';
+    _renderLucide();
     return;
   }
   if (emptyHost) emptyHost.style.display = 'none';
   if (heroEl) heroEl.style.display = '';
-  contentCards.forEach(el => { el.style.display = ''; });
+  contentEls.forEach(el => { el.style.display = ''; });
   document.getElementById('whoTitle').textContent = '나의 돌봄';
   document.getElementById('whoSub').textContent = '연결됨 · 실시간';
 

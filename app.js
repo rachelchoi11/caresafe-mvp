@@ -254,13 +254,18 @@
     }
     save(state);
     broadcast({ type: 'alert', payload: full });
+    fireLocal({ type: 'alert', payload: full });
     return full;
   }
 
   function setStatus(uid, status) {
     const state = load();
     const senior = state.seniors.find(s => s.id === uid);
-    if (senior) { senior.status = status; senior.lastPing = Date.now(); save(state); broadcast({ type: 'status', uid, status }); }
+    if (senior) {
+      senior.status = status; senior.lastPing = Date.now(); save(state);
+      broadcast({ type: 'status', uid, status });
+      fireLocal({ type: 'status', uid, status });
+    }
   }
 
   function setActive(uid) {
@@ -268,6 +273,7 @@
     state.activeUid = uid;
     save(state);
     broadcast({ type: 'active', uid });
+    fireLocal({ type: 'active', uid });
   }
 
   // Codex P1 #2 수정: 단일 시니어 update — 어댑터 일관 API
@@ -278,6 +284,7 @@
     else state.seniors.push(senior);
     save(state);
     broadcast({ type: 'senior_saved', uid: senior.id });
+    fireLocal({ type: 'senior_saved', uid: senior.id });
   }
 
   // 단일 시니어 삭제 + 관련 알림
@@ -290,6 +297,7 @@
     }
     save(state);
     broadcast({ type: 'senior_deleted', uid });
+    fireLocal({ type: 'senior_deleted', uid });  // 같은 탭 구독자도 즉시 갱신
   }
 
   // ---------- HTML escape (XSS 방어 — Codex P2 #6) ----------

@@ -244,8 +244,11 @@ async function deleteSenior(uid, name) {
   try {
     // Codex P1 #2: 전체 save() 대신 단일 돌봄대상자 삭제 API 사용 — 동시 알림 안전.
     await CareSafe.deleteSenior(uid);
-    render();
+    // 안전 점검 플래그도 함께 정리
+    try { localStorage.removeItem(`caresafe:safetycheck:done:${uid}`); } catch {}
+    // 데이터 동기화 보장 — 보호자 홈 등 다른 페이지가 옛 데이터를 보지 않도록 새로고침
     if (window.CareSafe?.toast) CareSafe.toast(`${name} 어르신 삭제 완료`, 'ok');
+    setTimeout(() => location.reload(), 350);
   } catch (e) {
     alert('삭제 실패: ' + e.message);
   }
